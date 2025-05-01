@@ -1,0 +1,30 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M31,63.928c0,0 6.4,-11 12.1,-13.1c7.2,-2.6 26,-1.4 26,-1.4l38.1,38.1L107,108.928l-32,-1L31,63.928z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:endX="85.84757"
+                android:endY="92.4963"
+                android:startX="42.9492"
+                android:startY="49.59793"
+                android:type="linear">
+                <item
+                    android:color="#44000000"
+                    android:offset="0.0" />
+                <item
+                    android:color="#00000000"
+                    android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="nonZero"
+        android:strokeWidth="1"
+        android:strokeColor="#00000000"
+        android:pathData="M 25,65 v -1.75 h 1.75 h 1.75 v -3.5 v -3.5 h 1.75 h 1.75 v -3.5 v -3.5 h 1.75 h 1.75 v -3.5 v -3.5 h 1.75 h 1.75 v -1.75 v -1.75 h 1.75 h 1.75 v -3.5 v -3.5 h 1.75 h 1.75 v 1.75 v 1.75 h 7 h 7 v -1.75 v -1.75 h 1.75 h 1.75 v 3.5 v 3.5 h 1.75 h 1.75 v 1.75 v 1.75 h 1.75 h 1.75 v 3.5 v 3.5 h 1.75 h 1.75 v 3.5 v 3.5 h 1.75 h 1.75 v 3.5 v 3.5 h 1.75 h 1.75 v 1.75 v 1.75 h -28 h -28 z m 14 -3.5 v -1.75 h 1.75 h 1.75 v -1.75 v -1.75 h -1.75 h -1.75 v 1.75 v 1.75 h -1.75 h -1.75 v 1.75 v 1.75 h 1.75 h 1.75 z m 14 0 v -1.75 h 1.75 h 1.75 v 1.75 v 1.75 h 5.25 h 5.25 v -1.75 v -1.75 h 1.75 h 1.75 v 1.75 v 1.75 h 1.75 h 1.75 v -3.5 v -3.5 h -1.75 h -1.75 v -3.5 v -3.5 h -1.75 h -1.75 v -3.5 v -3.5 h -1.75 h -1.75 v -1.75 v -1.75 h -1.75 h -1.75 v 1.75 v 1.75 h -1.75 h -1.75 v 3.5 v 3.5 h -1.75 h -1.75 v 3.5 v 3.5 h -1.75 h -1.75 v 3.5 v 3.5 h 1.75 h 1.75 z m 3.5 -5.25 v -3.5 h 1.75 h 1.75 v -1.75 v -1.75 h 1.75 h 1.75 v 1.75 v 1.75 h 1.75 h 1.75 v 3.5 v 3.5 h -1.75 h -1.75 v -3.5 v -3.5 h -1.75 h -1.75 v 3.5 v 3.5 h -1.75 h -1.75 z m -10.5 -8.75 v -1.75 h 1.75 h 1.75 v -1.75 v -1.75 h -1.75 h -1.75 v 1.75 v 1.75 h -1.75 h -1.75 v 1.75 v 1.75 h 1.75 h 1.75 z"/>
+</vector>
