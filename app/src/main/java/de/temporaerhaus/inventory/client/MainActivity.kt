@@ -92,7 +92,9 @@ import retrofit2.http.POST
 import java.io.IOException
 import java.time.DateTimeException
 import java.time.Duration
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.Period
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 
@@ -520,9 +522,7 @@ fun ItemDataLines(item: InventoryItem, now: MutableState<LocalDateTime>) {
     renderNestedData(item.data ?: emptyMap())
 }
 
-@Composable
-fun DateLine(value: String, now: MutableState<LocalDateTime>, modifier: Modifier = Modifier) {
-    var dateTime: LocalDateTime? = null
+fun testForDateTime(value: String): LocalDateTime? {
     try {
         val formats = listOf<DateTimeFormatter>(
             DateTimeFormatter.ofPattern("EEE MMM dd HH:mm:ss zzz yyyy"),
@@ -535,8 +535,7 @@ fun DateLine(value: String, now: MutableState<LocalDateTime>, modifier: Modifier
         )
         for (format in formats) {
             try {
-                dateTime = format.parse(value.toString()).query<LocalDateTime>(LocalDateTime::from)
-                break
+                return format.parse(value).query<LocalDateTime>(LocalDateTime::from)
             } catch (_: DateTimeParseException) {
                 continue
             } catch (_: DateTimeException) {
@@ -544,11 +543,36 @@ fun DateLine(value: String, now: MutableState<LocalDateTime>, modifier: Modifier
             }
         }
     } catch (e: Exception) {
-        Log.e(TAG, "Date parsing error: ${e.message}")
-        dateTime = null
+        Log.e(TAG, "DateTime parsing error: ${e.message}")
+        return null
     }
+    return null
+}
+
+fun testForDate(value: String): LocalDate? {
+    try {
+        return DateTimeFormatter.ISO_LOCAL_DATE.parse(value).query<LocalDate>(LocalDate::from)
+    } catch (_: DateTimeParseException) {
+        return null
+    } catch (_: DateTimeException) {
+        return null
+    } catch (e: Exception) {
+        Log.e(TAG, "Date parsing error: ${e.message}")
+        return null
+    }
+    return null
+}
+
+@Composable
+fun DateLine(value: String, now: MutableState<LocalDateTime>, modifier: Modifier = Modifier) {
+    var dateTime: LocalDateTime? = testForDateTime(value)
     if (dateTime != null) {
         RelativeDateTimeRow(now.value, dateTime, modifier = modifier)
+    }
+
+    var date: LocalDate? = testForDate(value)
+    if (date != null) {
+        RelativeDateRow(now.value, date, modifier = modifier)
     }
 }
 
@@ -729,9 +753,38 @@ fun RelativeDateTimeRow(
         }
 
     }
+    timeText = if (duration.isNegative) "in $timeText" else "$timeText ago"
+    ClockTextRow(timeText, modifier)
+}
+
+
+@Composable
+fun RelativeDateRow(
+    now: LocalDateTime,
+    date: LocalDate,
+    modifier: Modifier = Modifier,
+    context: Context = LocalContext.current
+) {
+    val duration = Period.between(date, now.toLocalDate()).normalized()
+
+    var timeText = when {
+        duration.years > 0 -> {
+            context.resources.getQuantityString(R.plurals.years, duration.years.toInt(), duration.years)
+        }
+        duration.months > 0 -> {
+            context.resources.getQuantityString(R.plurals.months, duration.months.toInt(), duration.months)
+        }
+        else -> {
+            context.resources.getQuantityString(R.plurals.days, duration.days.toInt(), duration.days)
+        }
+    }
 
     timeText = if (duration.isNegative) "in $timeText" else "$timeText ago"
+    ClockTextRow(timeText, modifier)
+}
 
+@Composable
+fun ClockTextRow(text: String, modifier: Modifier = Modifier) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -745,7 +798,7 @@ fun RelativeDateTimeRow(
                 .alpha(0.6f)
         )
         Text(
-            text = timeText,
+            text = text,
             fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
