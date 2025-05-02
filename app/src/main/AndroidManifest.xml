@@ -20,7 +20,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:screenOrientation="sensorPortrait"
+            android:screenOrientation="portrait"
             android:theme="@style/Theme.TPHInventory"
             tools:ignore="LockedOrientationActivity">
             <intent-filter>
