@@ -88,6 +88,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.converter.scalars.ScalarsConverterFactory
 import retrofit2.http.POST
+import java.io.IOException
 import java.time.DateTimeException
 import java.time.Duration
 import java.time.LocalDateTime
@@ -241,12 +242,10 @@ fun InventoryApp(
         saved = false
         coroutineScope.launch(Dispatchers.IO) {
             try {
-                item = getInventoryData(
-                    inventoryNumber,
-                    onError = { msg ->
-                        errorMessage = msg
-                    }
-                )
+                item = getInventoryData(inventoryNumber)
+            } catch (e: IOException) {
+                Log.e(TAG, "Error getting data: ${e.message}")
+                errorMessage = e.message
             } catch (e: Exception) {
                 Log.e(TAG, "Error getting data: ${e.message}")
                 errorMessage = "Error getting data: ${e.message}"
@@ -291,20 +290,20 @@ fun InventoryApp(
         if (!isSaving && !saved) {
             isSaving = true
             coroutineScope.launch(Dispatchers.IO) {
-                val newItem = writeAsSeen(
-                    item!!,
-                    onError = { msg ->
-                        errorMessage = msg
+                try {
+                    val newItem = writeAsSeen(item!!)
+                    if (newItem != null) {
+                        item = newItem
+                        saved = true
+                        if (!lastItemWasScanned) {
+                            // after saving, focus the text field again
+                            focusRequester.requestFocus()
+                        }
                     }
-                )
-                isSaving = false
-                if (newItem != null) {
-                    item = newItem
-                    saved = true
-                    if (!lastItemWasScanned) {
-                        // after saving, focus the text field again
-                        focusRequester.requestFocus()
-                    }
+                } catch (e: IOException) {
+                    errorMessage = e.message
+                } finally {
+                    isSaving = false
                 }
             }
         }
@@ -519,7 +518,6 @@ private val dokuwikiApi: DokuwikiApi by lazy {
 
 suspend fun getInventoryData(
     inventoryNumber: String,
-    onError: (message: String) -> Unit = {}
 ): InventoryItem? {
     try {
         val response = dokuwikiApi.getPageContent(DokuwikiApi.PageRequest("inventar/${inventoryNumber}"))
@@ -535,19 +533,16 @@ suspend fun getInventoryData(
                 data = yamlBlock
             )
         } else {
-            onError("No YAML block found. Is this a existing inventory item?")
-            return null
+            throw IOException("No YAML block found. Is this a existing inventory item?")
         }
     } catch (e: Exception) {
         Log.e(TAG, "Network error: ${e.message}")
-        onError("Network error: ${e.message}")
-        return null
+        throw IOException("Network error: ${e.message}")
     }
 }
 
 suspend fun writeAsSeen(
     item: InventoryItem,
-    onError: (message: String) -> Unit = {}
 ): InventoryItem? {
     try {
         val response = dokuwikiApi.getPageContent(DokuwikiApi.PageRequest("inventar/${item.number}"))
@@ -570,8 +565,7 @@ suspend fun writeAsSeen(
         return null
     } catch (e: Exception) {
         Log.e(TAG, "Network error: ${e.message}")
-        onError("Network error: ${e.message}")
-        return null
+        throw IOException("Network error: ${e.message}")
     }
 }
 
@@ -641,6 +635,7 @@ fun replaceYamlBlockInMarkdown(markdown: String, data: Map<String, Any>): String
     val dumperOptions = DumperOptions().apply {
         defaultScalarStyle = DumperOptions.ScalarStyle.PLAIN
         isPrettyFlow = true
+        defaultFlowStyle = DumperOptions.FlowStyle.FLOW
     }
     val yaml = Yaml(dumperOptions)
     var code = yaml.dump(data)
