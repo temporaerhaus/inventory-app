@@ -106,12 +106,22 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Check if the app is running on a device with installed zebra datawedge:
+        val isDataWedgeInstalled = try {
+            packageManager.getPackageInfo("com.symbol.datawedge", 0)
+            true
+        } catch (_: PackageManager.NameNotFoundException) {
+            false
+        }
+
         setContent {
             TPHInventoryTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     InventoryApp(
                         modifier = Modifier.padding(innerPadding),
                         barcodeBroadcastState = _barcodeState,
+                        isHardwareScannerAvailable = isDataWedgeInstalled
                     )
                 }
             }
@@ -202,6 +212,7 @@ data class InventoryItem(
 fun InventoryApp(
     modifier: Modifier = Modifier,
     barcodeBroadcastState: MutableState<String>? = null,
+    isHardwareScannerAvailable: Boolean = false
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -212,6 +223,7 @@ fun InventoryApp(
     var isSaving by remember { mutableStateOf(false) }
     var saved by remember { mutableStateOf(false) }
     var autoSave by rememberSaveable {  mutableStateOf(false) }
+    var lastItemWasScanned by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     var now = remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) {
@@ -246,6 +258,7 @@ fun InventoryApp(
         barcodeBroadcastState?.value?.let { barcode ->
             if (barcode.isNotEmpty() && barcode != inventoryNumber) {
                 inventoryNumber = barcode
+                lastItemWasScanned = true
                 search()
             }
         }
@@ -260,6 +273,7 @@ fun InventoryApp(
             scanner.startScan()
                 .addOnSuccessListener { result ->
                     inventoryNumber = result.rawValue ?: ""
+                    lastItemWasScanned = true
                     search()
                 }
                 .addOnCanceledListener {
@@ -287,8 +301,10 @@ fun InventoryApp(
                 if (newItem != null) {
                     item = newItem
                     saved = true
-                    // after saving, focus the text field again
-                    focusRequester.requestFocus()
+                    if (!lastItemWasScanned) {
+                        // after saving, focus the text field again
+                        focusRequester.requestFocus()
+                    }
                 }
             }
         }
@@ -346,19 +362,25 @@ fun InventoryApp(
                         ),
                         keyboardActions = KeyboardActions(
                             onSearch = {
+                                lastItemWasScanned = false
                                 search()
                             }
                         ),
                     )
-                    LaunchedEffect(Unit) {
-                        focusRequester.requestFocus()
+                    if (!isHardwareScannerAvailable) {
+                        LaunchedEffect(Unit) {
+                            focusRequester.requestFocus()
+                        }
                     }
                     Spacer(modifier = Modifier.padding(horizontal = 8.dp))
                     Button(
                         modifier = Modifier
                             .align(Alignment.CenterVertically)
                             .padding(top = 4.dp),
-                        onClick = ::search
+                        onClick = {
+                            lastItemWasScanned = false
+                            search()
+                        }
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Search,
