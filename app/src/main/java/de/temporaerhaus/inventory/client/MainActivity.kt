@@ -10,6 +10,10 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,10 +24,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -54,8 +58,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -210,6 +217,7 @@ fun InventoryApp(
     var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
     var isSaving by remember { mutableStateOf(false) }
     var saved by remember { mutableStateOf(false) }
+    var autoSave by rememberSaveable {  mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     var now = remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) {
@@ -242,7 +250,7 @@ fun InventoryApp(
 
     LaunchedEffect(barcodeBroadcastState?.value) {
         barcodeBroadcastState?.value?.let { barcode ->
-            if (barcode.isNotEmpty()) {
+            if (barcode.isNotEmpty() && barcode != inventoryNumber) {
                 inventoryNumber = barcode
                 search()
             }
@@ -297,6 +305,10 @@ fun InventoryApp(
         Log.d("InventoryApp", "Open in browser: ${fullUrl}")
         val intent = Intent(Intent.ACTION_VIEW, fullUrl.toUri())
         context.startActivity(intent)
+    }
+
+    fun toggleAutoSave() {
+        autoSave = !autoSave
     }
 
     val keyboardVisible = WindowInsets.isImeVisible
@@ -463,9 +475,16 @@ fun InventoryApp(
                     MarkAsSeenButton(
                         isSaving = isSaving,
                         saved = saved,
-                        onMarkAsSeen = ::markAsSeen
+                        onMarkAsSeen = ::markAsSeen,
+                        autoSave = autoSave
                     )
                     Spacer(modifier = Modifier.weight(1f))
+                    IconButton(onClick = ::toggleAutoSave) {
+                        Icon(
+                            painter = painterResource(if (autoSave) R.drawable.time_auto_24 else R.drawable.timer_off_24),
+                            contentDescription = "Auto save",
+                        )
+                    }
                 }
             }
         }
@@ -622,7 +641,7 @@ fun RelativeDateTimeRow(
     now: LocalDateTime,
     date: LocalDateTime,
     modifier: Modifier = Modifier,
-    context: android.content.Context = LocalContext.current
+    context: Context = LocalContext.current
 ) {
     val duration = Duration.between(date, now)
 
@@ -682,44 +701,101 @@ fun MarkAsSeenButton(
     isSaving: Boolean,
     saved: Boolean,
     onMarkAsSeen: () -> Unit,
-    modifier: Modifier = Modifier
+    autoSave: Boolean,
+    modifier: Modifier = Modifier,
 ) {
-    Button(
-        modifier = modifier
-            .height(56.dp),
-        onClick = { onMarkAsSeen() },
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color.Black
+    val animationProgress = remember { Animatable(0f) }
+    var launched by remember { mutableStateOf(false) }
+    var enabled = !isSaving && !saved
+    var buttonColor: Color = Color.Black
+    var progressColor: Color = Color.DarkGray
+
+    LaunchedEffect(autoSave) {
+        if (autoSave && !launched) {
+            launched = true
+            animationProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = 5_000,
+                    easing = LinearEasing
+                )
+            )
+            onMarkAsSeen()
+            animationProgress.snapTo(0f)
+            launched = false
+        } else if (!autoSave && launched) {
+            animationProgress.stop()
+            animationProgress.snapTo(0f)
+            launched = false
+        }
+    }
+
+    val brush = if (enabled) Brush.linearGradient(
+        colorStops = arrayOf(
+            0.0f to progressColor,
+            animationProgress.value to progressColor,
+            animationProgress.value to buttonColor,
+            1.0f to buttonColor
         ),
-        enabled = !isSaving && !saved
+        start = Offset.Zero,
+        end = Offset(Float.POSITIVE_INFINITY, 0f)
+    ) else Brush.linearGradient(
+            colorStops = arrayOf(
+                0.0f to Color.Gray,
+                1.0f to Color.Gray
+            ),
+            start = Offset.Zero,
+            end = Offset(Float.POSITIVE_INFINITY, 0f)
+        )
+
+    Box(
+        modifier = modifier
+            .clip(ButtonDefaults.shape)
+            .background(brush = brush)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Button(
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Transparent,
+                contentColor = Color.White,
+                disabledContainerColor = Color.Transparent,
+                disabledContentColor = Color.DarkGray.copy(alpha = 0.5f)
+            ),
+            enabled = enabled && !launched,
+            onClick = { onMarkAsSeen() },
+            modifier = Modifier.wrapContentWidth()
         ) {
-            when {
-                isSaving -> CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = Color.White,
-                    strokeWidth = 2.dp
-                )
-                saved -> Icon(
-                    imageVector = Icons.Filled.CheckCircle,
-                    contentDescription = "Checked"
-                )
-                else -> Icon(
-                    imageVector = Icons.Outlined.Check,
-                    contentDescription = "Check mark"
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                when {
+                    isSaving -> CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                    saved -> Icon(
+                        imageVector = Icons.Filled.CheckCircle,
+                        contentDescription = "Checked",
+                        tint = Color.White
+                    )
+                    else -> Icon(
+                        imageVector = Icons.Outlined.Check,
+                        contentDescription = "Check mark",
+                        tint = Color.White
+                    )
+                }
+                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                Text(
+                    text = when {
+                        isSaving -> "Saving..."
+                        saved -> "Marked as seen"
+                        else -> "Mark as seen"
+                    },
+                    fontSize = 16.sp,
+                    color = Color.White
                 )
             }
-            Text(
-                text = when {
-                    isSaving -> "Saving..."
-                    saved -> "Marked as seen"
-                    else -> "Mark as seen"
-                },
-                fontSize = 16.sp
-            )
         }
     }
 }
