@@ -66,6 +66,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -402,7 +403,7 @@ fun InventoryApp(
                 Text(
                     text = "${item?.name ?: "Unknown Item"}:",
                     style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.padding(vertical = 8.dp),
+                    modifier = Modifier.padding(vertical = 4.dp),
                     softWrap = true
                 )
                 Box(
@@ -414,46 +415,10 @@ fun InventoryApp(
                         modifier = Modifier
                             .verticalScroll(rememberScrollState())
                     ) {
-                        item?.data?.forEach { (key, value) ->
-                            if (key in listOf("inventory") || value == null || value.toString().isBlank()) {
-                                return@forEach
-                            }
-                            Text(
-                                text = "$key: $value",
-                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                            )
-
-                            if (key in listOf("date", "lastSeenAt")) {
-                                var dateTime: LocalDateTime? = null
-                                try {
-                                    val formats = listOf<DateTimeFormatter>(
-                                        DateTimeFormatter.ofPattern("EEE MMM dd HH:mm:ss zzz yyyy"),
-                                        DateTimeFormatter.RFC_1123_DATE_TIME,
-                                        DateTimeFormatter.ISO_LOCAL_DATE,
-                                        DateTimeFormatter.ISO_INSTANT,
-                                        DateTimeFormatter.ISO_DATE_TIME,
-                                        DateTimeFormatter.ISO_LOCAL_DATE_TIME,
-                                        DateTimeFormatter.ISO_OFFSET_DATE_TIME,
-                                    )
-                                    for (format in formats) {
-                                        try {
-                                            dateTime = format.parse(value.toString()).query<LocalDateTime>(LocalDateTime::from)
-                                            break
-                                        } catch (_: DateTimeParseException) {
-                                            continue
-                                        } catch (_: DateTimeException) {
-                                            continue
-                                        }
-                                    }
-                                } catch (e: Exception) {
-                                    Log.e(TAG, "Date parsing error: ${e.message}")
-                                    dateTime = null
-                                }
-                                if (dateTime != null) {
-                                    RelativeDateTimeRow(now.value, dateTime)
-                                }
-                            }
-                        }
+                        if (item != null) ItemDataLines(
+                            item = item!!,
+                            now = now,
+                        )
                     }
                 }
             } else {
@@ -503,6 +468,87 @@ fun InventoryApp(
                 }
             }
         }
+    }
+}
+
+
+@Composable
+fun ItemDataLines(item: InventoryItem, now: MutableState<LocalDateTime>) {
+
+    @Composable
+    fun renderNestedData(data: Map<String, Any?>, indent: Int = 0) {
+        val INDENT_SIZE = 12
+        data.forEach { (key, value) ->
+            if (key in listOf("inventory") || value == null || value.toString().isBlank()) {
+                return@forEach
+            }
+
+            if (value is Map<*, *>) {
+                if (value.isEmpty()) {
+                    Text(
+                        text = "$key: {}",
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
+                    )
+                    return@forEach
+                }
+                Text(
+                    text = "$key: { ",
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
+                )
+                @Suppress("UNCHECKED_CAST")
+                renderNestedData(value as Map<String, Any?>, indent + 1)
+                Text(
+                    text = "}",
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
+                )
+            } else {
+                Text(
+                    text = "$key: $value",
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
+                )
+                if (key in listOf("date", "lastSeenAt", "timestamp")) {
+                    DateLine(value.toString(), now, modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp))
+                }
+            }
+        }
+    }
+
+    renderNestedData(item.data ?: emptyMap())
+}
+
+@Composable
+fun DateLine(value: String, now: MutableState<LocalDateTime>, modifier: Modifier = Modifier) {
+    var dateTime: LocalDateTime? = null
+    try {
+        val formats = listOf<DateTimeFormatter>(
+            DateTimeFormatter.ofPattern("EEE MMM dd HH:mm:ss zzz yyyy"),
+            DateTimeFormatter.RFC_1123_DATE_TIME,
+            DateTimeFormatter.ISO_LOCAL_DATE,
+            DateTimeFormatter.ISO_INSTANT,
+            DateTimeFormatter.ISO_DATE_TIME,
+            DateTimeFormatter.ISO_LOCAL_DATE_TIME,
+            DateTimeFormatter.ISO_OFFSET_DATE_TIME,
+        )
+        for (format in formats) {
+            try {
+                dateTime = format.parse(value.toString()).query<LocalDateTime>(LocalDateTime::from)
+                break
+            } catch (_: DateTimeParseException) {
+                continue
+            } catch (_: DateTimeException) {
+                continue
+            }
+        }
+    } catch (e: Exception) {
+        Log.e(TAG, "Date parsing error: ${e.message}")
+        dateTime = null
+    }
+    if (dateTime != null) {
+        RelativeDateTimeRow(now.value, dateTime, modifier = modifier)
     }
 }
 
@@ -700,7 +746,7 @@ fun RelativeDateTimeRow(
         )
         Text(
             text = timeText,
-            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+            fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )
