@@ -1,5 +1,7 @@
 package de.temporaerhaus.inventory.client
 
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -32,6 +34,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -54,9 +57,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
@@ -182,6 +186,13 @@ fun InventoryApp(modifier: Modifier = Modifier) {
                 }
             }
         }
+    }
+
+    fun openInBrowser() {
+        val fullUrl = "https://wiki.temporaerhaus.de/inventar/${item?.number}"
+        Log.d("InventoryApp", "Open in browser: ${fullUrl}")
+        val intent = Intent(Intent.ACTION_VIEW, fullUrl.toUri())
+        context.startActivity(intent)
     }
 
     val keyboardVisible = WindowInsets.isImeVisible
@@ -326,14 +337,32 @@ fun InventoryApp(modifier: Modifier = Modifier) {
                 else
                     8.dp
 
-                MarkAsSeenButton(
+                Row(
                     modifier = Modifier
-                        .align(Alignment.CenterHorizontally),
-                    isSaving = isSaving,
-                    saved = saved,
-                    buttonBottomPadding = buttonBottomPadding,
-                    onMarkAsSeen = ::markAsSeen
-                )
+                        .fillMaxWidth()
+                        .padding(
+                            top = 3.dp,
+                            bottom = buttonBottomPadding,
+                            start = 16.dp,
+                            end = 16.dp
+                        ),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = ::openInBrowser) {
+                        Icon(
+                            painter = painterResource(R.drawable.open_in_browser_24),
+                            contentDescription = "Open in Browser",
+                        )
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                    MarkAsSeenButton(
+                        isSaving = isSaving,
+                        saved = saved,
+                        onMarkAsSeen = ::markAsSeen
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                }
             }
         }
     }
@@ -548,13 +577,11 @@ fun RelativeDateTimeRow(
 fun MarkAsSeenButton(
     isSaving: Boolean,
     saved: Boolean,
-    buttonBottomPadding: Dp,
     onMarkAsSeen: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Button(
         modifier = modifier
-            .padding(top = 3.dp, bottom = buttonBottomPadding)
             .height(56.dp),
         onClick = { onMarkAsSeen() },
         colors = ButtonDefaults.buttonColors(
