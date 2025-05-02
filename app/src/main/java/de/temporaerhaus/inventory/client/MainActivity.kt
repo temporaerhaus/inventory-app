@@ -94,6 +94,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 
+const val TAG = "TPHInventoryClient"
 
 class MainActivity : ComponentActivity() {
     companion object {
@@ -116,17 +117,10 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Check if the app is running on a device with installed zebra datawedge:
-        val isDataWedgeInstalled = try {
-            packageManager.getPackageInfo("com.symbol.datawedge", 0)
-            true
-        } catch (_: PackageManager.NameNotFoundException) {
-            false
-        }
         if (isDataWedgeInstalled) {
             configureDataWedge()
         } else {
-            Log.d("MainActivity", "Not a Zebra device, not enabling data wedge.")
+            Log.d(TAG, "Not a Zebra device, not enabling data wedge.")
         }
     }
 
@@ -134,7 +128,7 @@ class MainActivity : ComponentActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == SCAN_INTENT) {
                 val barcode = intent.getStringExtra("com.symbol.datawedge.data_string") ?: ""
-                Log.d("MainActivity", "Received barcode: $barcode")
+                Log.d(TAG, "Received barcode: $barcode")
                 _barcodeState.value = barcode
             }
         }
@@ -242,7 +236,7 @@ fun InventoryApp(
                     }
                 )
             } catch (e: Exception) {
-                Log.e("InventoryApp", "Error getting data: ${e.message}")
+                Log.e(TAG, "Error getting data: ${e.message}")
                 errorMessage = "Error getting data: ${e.message}"
             }
         }
@@ -272,10 +266,10 @@ fun InventoryApp(
                     // User canceled the scan
                 }
                 .addOnFailureListener { e ->
-                    Log.e("InventoryApp", "Barcode scanning failed: ${e.message}")
+                    Log.e(TAG, "Barcode scanning failed: ${e.message}")
                 }
         } catch (e: Exception) {
-            Log.e("InventoryApp", "Error starting barcode scan: ${e.message}")
+            Log.e(TAG, "Error starting barcode scan: ${e.message}")
         }
     }
 
@@ -302,7 +296,7 @@ fun InventoryApp(
 
     fun openInBrowser() {
         val fullUrl = "https://wiki.temporaerhaus.de/inventar/${item?.number}"
-        Log.d("InventoryApp", "Open in browser: ${fullUrl}")
+        Log.d(TAG, "Open in browser: ${fullUrl}")
         val intent = Intent(Intent.ACTION_VIEW, fullUrl.toUri())
         context.startActivity(intent)
     }
@@ -431,7 +425,7 @@ fun InventoryApp(
                                         }
                                     }
                                 } catch (e: Exception) {
-                                    Log.e("InventoryApp", "Date parsing error: ${e.message}")
+                                    Log.e(TAG, "Date parsing error: ${e.message}")
                                     dateTime = null
                                 }
                                 if (dateTime != null) {
@@ -507,11 +501,11 @@ suspend fun getInventoryData(
 ): InventoryItem? {
     try {
         val response = dokuwikiApi.getPageContent(DokuwikiApi.PageRequest("inventar/${inventoryNumber}"))
-        Log.d("InventoryApp", "Response: $response")
+        Log.d(TAG, "Response: $response")
         val name = extractHeadingFromMarkdown(response.result)
         val yamlBlock = extractYamlBlockFromMarkdown(response.result)
-        Log.d("InventoryApp", "Extracted Name: $name")
-        Log.d("InventoryApp", "Extracted Data: $yamlBlock")
+        Log.d(TAG, "Extracted Name: $name")
+        Log.d(TAG, "Extracted Data: $yamlBlock")
         if (yamlBlock != null) {
             return InventoryItem(
                 number = inventoryNumber,
@@ -523,7 +517,7 @@ suspend fun getInventoryData(
             return null
         }
     } catch (e: Exception) {
-        Log.e("InventoryApp", "Network error: ${e.message}")
+        Log.e(TAG, "Network error: ${e.message}")
         onError("Network error: ${e.message}")
         return null
     }
@@ -548,12 +542,12 @@ suspend fun writeAsSeen(
 
             dokuwikiApi.writePageContent(DokuwikiApi.SavePageRequest("inventar/${item.number}", updatedContent))
 
-            Log.d("InventoryApp", "Updated content: $updatedContent")
+            Log.d(TAG, "Updated content: $updatedContent")
             return item.copy(data = updatedYamlBlock)
         }
         return null
     } catch (e: Exception) {
-        Log.e("InventoryApp", "Network error: ${e.message}")
+        Log.e(TAG, "Network error: ${e.message}")
         onError("Network error: ${e.message}")
         return null
     }
@@ -614,7 +608,7 @@ fun extractYamlBlockFromMarkdown(markdown: String): Map<String, Any>? {
                 return data
             }
         } catch (e: Exception) {
-            Log.e("InventoryApp", "YAML parsing error: ${e.message}")
+            Log.e(TAG, "YAML parsing error: ${e.message}")
             continue
         }
     }
