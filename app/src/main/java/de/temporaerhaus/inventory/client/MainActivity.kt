@@ -161,16 +161,25 @@ class MainActivity : ComponentActivity() {
                     }
                 )
             )
-            putBundle("PLUGIN_CONFIG", Bundle().apply {
-                putString("PLUGIN_NAME", "INTENT")
-                putString("RESET_CONFIG", "false")
-                putBundle("PARAM_LIST", Bundle().apply {
-                    putString("intent_output_enabled", "true")
-                    putString("intent_action", SCAN_INTENT)
-                    putString("intent_category", "android.intent.category.DEFAULT")
-                    putInt("intent_delivery", USE_BROADCAST)
-                })
-            })
+            putParcelableArrayList("PLUGIN_CONFIG", arrayListOf(
+                Bundle().apply {
+                    putString("PLUGIN_NAME", "INTENT")
+                    putString("RESET_CONFIG", "false")
+                    putBundle("PARAM_LIST", Bundle().apply {
+                        putString("intent_output_enabled", "true")
+                        putString("intent_action", SCAN_INTENT)
+                        putString("intent_category", "android.intent.category.DEFAULT")
+                        putInt("intent_delivery", USE_BROADCAST)
+                    })
+                },
+                Bundle().apply {
+                    putString("PLUGIN_NAME", "KEYSTROKE")
+                    putString("RESET_CONFIG", "false")
+                    putBundle("PARAM_LIST", Bundle().apply {
+                        putString("keystroke_output_enabled", "false");
+                    })
+                }
+            ))
         }
 
         val i = Intent().apply {
