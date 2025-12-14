@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "de.temporaerhaus.inventory.client"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "de.temporaerhaus.inventory.client"
         minSdk = 23 // Android 6.0 (API 23) - so we can still use the torg devices
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
