@@ -507,13 +507,29 @@ fun ItemDataLines(item: InventoryItem, now: MutableState<LocalDateTime>) {
                     modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
                 )
             } else {
-                Text(
-                    text = "$key: $value",
-                    fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
-                )
+                Row() {
+                    Text(
+                        text = "$key: $value",
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
+                    )
+                    if (key == "container") {
+                        Icon(
+                            painter = painterResource(R.drawable.package_variant_24),
+                            contentDescription = "Package",
+                            modifier = Modifier
+                                .size(20.dp)
+                                .padding(start = 4.dp)
+                                .alpha(0.6f)
+                        )
+                    }
+                }
                 if (key in listOf("date", "lastSeenAt", "timestamp")) {
-                    DateLine(value.toString(), now, modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp))
+                    DateLine(
+                        value.toString(),
+                        now,
+                        modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
+                    )
                 }
             }
         }
