@@ -34,6 +34,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.Button
@@ -227,6 +228,7 @@ fun InventoryApp(
     var isSaving by remember { mutableStateOf(false) }
     var saved by remember { mutableStateOf(false) }
     var autoSave by rememberSaveable {  mutableStateOf(false) }
+    var lastContainerItem by remember { mutableStateOf<InventoryItem?>(null) }
     var lastItemWasScanned by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     var now = remember { mutableStateOf(LocalDateTime.now()) }
@@ -246,6 +248,9 @@ fun InventoryApp(
         coroutineScope.launch(Dispatchers.IO) {
             try {
                 item = getInventoryData(inventoryNumber)
+                if (item?.data?.getOrDefault("container", false) == true) {
+                    lastContainerItem = item
+                }
             } catch (e: IOException) {
                 Log.e(TAG, "Error getting data: ${e.message}")
                 errorMessage = e.message
@@ -294,7 +299,7 @@ fun InventoryApp(
             isSaving = true
             coroutineScope.launch(Dispatchers.IO) {
                 try {
-                    val newItem = writeAsSeen(item!!)
+                    val newItem = writeAsSeen(item!!, lastContainerItem)
                     if (newItem != null) {
                         item = newItem
                         saved = true
@@ -323,12 +328,15 @@ fun InventoryApp(
         autoSave = !autoSave
     }
 
+    fun forgetLastContainerItem() {
+        lastContainerItem = null
+    }
+
     val keyboardVisible = WindowInsets.isImeVisible
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp)
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -337,7 +345,9 @@ fun InventoryApp(
             Column {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                    modifier =
+                        Modifier
+                            .padding(vertical = 8.dp, horizontal = 16.dp)
                 ) {
                     OutlinedTextField(
                         modifier = Modifier
@@ -392,12 +402,16 @@ fun InventoryApp(
                 }
 
                 if (errorMessage != null) {
-                    Text(
-                        text = errorMessage!!,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                        softWrap = true
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    ) {
+                        Text(
+                            text = errorMessage!!,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                            softWrap = true
+                        )
+                    }
                 }
             }
 
@@ -405,12 +419,13 @@ fun InventoryApp(
                 Text(
                     text = "${item?.name ?: "Unknown Item"}:",
                     style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.padding(vertical = 4.dp),
+                    modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp),
                     softWrap = true
                 )
                 Box(
                     modifier = Modifier
                         .weight(1f)
+                        .padding(horizontal = 16.dp)
                         .fillMaxWidth()
                 ) {
                     Column(
@@ -434,6 +449,41 @@ fun InventoryApp(
                     256.dp // Window.ime didn't work for some reason
                 else
                     8.dp
+
+                if (lastContainerItem != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                            .background(Color.Yellow),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val locationText =
+                            if (lastContainerItem!!.number == item!!.number) {
+                                "The next scans will be located at ${lastContainerItem!!.name}"
+                            } else {
+                                "Set current location to ${lastContainerItem!!.number} (${lastContainerItem!!.name})"
+                            }
+
+
+                        Text(
+                            text = locationText,
+                            softWrap = true,
+                            modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+                        )
+                        IconButton(
+                            onClick = ::forgetLastContainerItem,
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = "Remove",
+                                modifier = Modifier
+                                    .size(24.dp)
+                            )
+                        }
+                    }
+                }
 
                 Row(
                     modifier = Modifier
@@ -507,7 +557,9 @@ fun ItemDataLines(item: InventoryItem, now: MutableState<LocalDateTime>) {
                     modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
                 )
             } else {
-                Row() {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
                         text = "$key: $value",
                         fontFamily = FontFamily.Monospace,
@@ -629,6 +681,7 @@ suspend fun getInventoryData(
 
 suspend fun writeAsSeen(
     item: InventoryItem,
+    lastContainerItem: InventoryItem? = null
 ): InventoryItem? {
     try {
         val response = dokuwikiApi.getPageContent(DokuwikiApi.PageRequest("inventar/${item.number}"))
@@ -636,10 +689,20 @@ suspend fun writeAsSeen(
         if (yamlBlock != null) {
             val updatedYamlBlock = yamlBlock.toMutableMap()
 
-            updatedYamlBlock["lastSeenAt"] = LocalDateTime
+            val nowIso = LocalDateTime
                 .now()
                 .atZone(java.time.ZoneId.systemDefault())
                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX"))
+
+            updatedYamlBlock["lastSeenAt"] = nowIso
+
+            if (lastContainerItem != null && lastContainerItem.number != item.number) {
+                updatedYamlBlock["temporary"] = mapOf(
+                    "description" to "",
+                    "location" to lastContainerItem.number,
+                    "timestamp" to nowIso
+                )
+            }
 
             val updatedContent = replaceYamlBlockInMarkdown(response.result, updatedYamlBlock)
 
