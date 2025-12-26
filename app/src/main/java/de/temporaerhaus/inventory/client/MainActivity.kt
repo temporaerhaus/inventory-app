@@ -67,9 +67,16 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -336,6 +343,12 @@ fun InventoryApp(
         lastContainerItem = null
     }
 
+    fun openItemFromDescription(number: String) {
+        inventoryNumber = number
+        lastItemWasScanned = false
+        search()
+    }
+
     val keyboardVisible = WindowInsets.isImeVisible
 
     Box(
@@ -439,6 +452,7 @@ fun InventoryApp(
                         if (item != null) ItemDataLines(
                             item = item!!,
                             now = now,
+                            onItemNumberClicked = { it -> openItemFromDescription(it) }
                         )
                     }
                 }
@@ -543,7 +557,9 @@ fun InventoryApp(
 
 
 @Composable
-fun ItemDataLines(item: InventoryItem, now: MutableState<LocalDateTime>) {
+fun ItemDataLines(item: InventoryItem,
+                  now: MutableState<LocalDateTime>,
+                  onItemNumberClicked: (number: String) -> Unit) {
 
     @Composable
     fun renderNestedData(data: Map<String, Any?>, indent: Int = 0) {
@@ -578,11 +594,37 @@ fun ItemDataLines(item: InventoryItem, now: MutableState<LocalDateTime>) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "$key: $value",
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
-                    )
+                    if (key == "location") {
+                        val text = buildAnnotatedString {
+                            append("$key: ")
+                            withLink(
+                                link = LinkAnnotation.Clickable(
+                                    tag = "TAG",
+                                    styles = TextLinkStyles(
+                                        style = SpanStyle(
+                                            textDecoration = TextDecoration.Underline
+                                        )
+                                    ),
+                                    linkInteractionListener = {
+                                        onItemNumberClicked(value.toString())
+                                    },
+                                ),
+                            ) {
+                                append(value.toString())
+                            }
+                        }
+                        Text(
+                            text = text,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
+                        )
+                    } else {
+                        Text(
+                            text = "$key: $value",
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
+                        )
+                    }
                     if (key == "container") {
                         Icon(
                             painter = painterResource(R.drawable.package_variant_24),
@@ -601,6 +643,7 @@ fun ItemDataLines(item: InventoryItem, now: MutableState<LocalDateTime>) {
                         modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
                     )
                 }
+                // FIXME: show title of location item
             }
         }
     }
