@@ -22,6 +22,7 @@ android {
         manifestPlaceholders["WIKI_BASE_URL"] = "https://wiki.temporaerhaus.de/"
     }
 
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -40,6 +41,7 @@ android {
         jvmTarget = "11"
     }
     buildFeatures {
+        buildConfig = true
         compose = true
     }
 }
