@@ -8,6 +8,7 @@ A quick and dirty inventory app for the [temporärhaus](https://temporaerhaus.de
 - support for zebra devices with integrated barcode scanner (using intent based scanning)
 - displays the current inventory details of an item
 - allows to mark the scanned item as seen
+- assigns the scanned item to the last scanned container item
  
 ## Requirements
 - Android >= 6.0 (API 23)

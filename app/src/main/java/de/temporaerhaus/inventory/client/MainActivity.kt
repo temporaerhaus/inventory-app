@@ -195,7 +195,7 @@ class MainActivity : ComponentActivity() {
                     putString("PLUGIN_NAME", "KEYSTROKE")
                     putString("RESET_CONFIG", "false")
                     putBundle("PARAM_LIST", Bundle().apply {
-                        putString("keystroke_output_enabled", "false");
+                        putString("keystroke_output_enabled", "false")
                     })
                 }
             ))
@@ -235,7 +235,7 @@ fun InventoryApp(
     var lastContainerItem by remember { mutableStateOf<InventoryItem?>(null) }
     var lastItemWasScanned by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
-    var now = remember { mutableStateOf(LocalDateTime.now()) }
+    val now = remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) {
         while(true) {
             now.value = LocalDateTime.now()
@@ -621,7 +621,7 @@ fun testForDateTime(value: String): LocalDateTime? {
         )
         for (format in formats) {
             try {
-                return format.parse(value).query<LocalDateTime>(LocalDateTime::from)
+                return format.parse(value).query(LocalDateTime::from)
             } catch (_: DateTimeParseException) {
                 continue
             } catch (_: DateTimeException) {
@@ -637,7 +637,7 @@ fun testForDateTime(value: String): LocalDateTime? {
 
 fun testForDate(value: String): LocalDate? {
     try {
-        return DateTimeFormatter.ISO_LOCAL_DATE.parse(value).query<LocalDate>(LocalDate::from)
+        return DateTimeFormatter.ISO_LOCAL_DATE.parse(value).query(LocalDate::from)
     } catch (_: DateTimeParseException) {
         return null
     } catch (_: DateTimeException) {
@@ -646,17 +646,16 @@ fun testForDate(value: String): LocalDate? {
         Log.e(TAG, "Date parsing error: ${e.message}")
         return null
     }
-    return null
 }
 
 @Composable
 fun DateLine(value: String, now: MutableState<LocalDateTime>, modifier: Modifier = Modifier) {
-    var dateTime: LocalDateTime? = testForDateTime(value)
+    val dateTime: LocalDateTime? = testForDateTime(value)
     if (dateTime != null) {
         RelativeDateTimeRow(now.value, dateTime, modifier = modifier)
     }
 
-    var date: LocalDate? = testForDate(value)
+    val date: LocalDate? = testForDate(value)
     if (date != null) {
         RelativeDateRow(now.value, date, modifier = modifier)
     }
@@ -714,13 +713,13 @@ fun RelativeDateRow(
 
     var timeText = when {
         duration.years > 0 -> {
-            context.resources.getQuantityString(R.plurals.years, duration.years.toInt(), duration.years)
+            context.resources.getQuantityString(R.plurals.years, duration.years, duration.years)
         }
         duration.months > 0 -> {
-            context.resources.getQuantityString(R.plurals.months, duration.months.toInt(), duration.months)
+            context.resources.getQuantityString(R.plurals.months, duration.months, duration.months)
         }
         else -> {
-            context.resources.getQuantityString(R.plurals.days, duration.days.toInt(), duration.days)
+            context.resources.getQuantityString(R.plurals.days, duration.days, duration.days)
         }
     }
 
@@ -761,9 +760,9 @@ fun MarkAsSeenButton(
 ) {
     val animationProgress = remember { Animatable(0f) }
     var launched by remember { mutableStateOf(false) }
-    var enabled = !isSaving && !saved
-    var buttonColor: Color = Color.Black
-    var progressColor: Color = Color.DarkGray
+    val enabled = !isSaving && !saved
+    val buttonColor: Color = Color.Black
+    val progressColor: Color = Color.DarkGray
 
     LaunchedEffect(autoSave) {
         if (autoSave && !launched) {

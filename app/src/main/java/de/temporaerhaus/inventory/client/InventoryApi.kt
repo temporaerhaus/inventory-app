@@ -27,7 +27,7 @@ class InventoryApi(val baseUrl: String) {
 
     suspend fun getInventoryData(
         inventoryNumber: String,
-    ): InventoryItem? {
+    ): InventoryItem {
         try {
             val response = dokuwikiApi.getPageContent(DokuwikiApi.PageRequest("inventar/${inventoryNumber}"))
             Log.d(TAG, "Response: $response")
@@ -102,7 +102,7 @@ class InventoryApi(val baseUrl: String) {
 
     class NoTimestampSafeConstructor : SafeConstructor {
         constructor(loaderOptions: LoaderOptions) : super(loaderOptions) {
-            this.yamlConstructors.put(Tag.TIMESTAMP, ConstructYamlStr())
+            this.yamlConstructors[Tag.TIMESTAMP] = ConstructYamlStr()
         }
     }
 
@@ -115,10 +115,7 @@ class InventoryApi(val baseUrl: String) {
                 continue
             }
             try {
-                val data: Map<String, Any>? = yaml.load(code)
-                if (data == null) {
-                    continue
-                }
+                val data: Map<String, Any> = yaml.load(code) ?: continue
                 if (data.containsKey("inventory")) {
                     return data
                 }
