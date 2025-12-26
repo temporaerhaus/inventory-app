@@ -33,6 +33,10 @@
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"
             android:value="barcode_ui"/>
-    </application>
 
+        <meta-data
+            android:name="de.temporaerhaus.inventory.WIKI_BASE_URL"
+            android:value="${WIKI_BASE_URL}" />
+
+    </application>
 </manifest>

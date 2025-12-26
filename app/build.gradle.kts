@@ -17,7 +17,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        setProperty("archivesBaseName", "tph-inventory-client-${versionName}")
+        base.archivesName = "tph-inventory-client-${versionName}"
+
+        manifestPlaceholders["WIKI_BASE_URL"] = "https://wiki.temporaerhaus.de/"
     }
 
     buildTypes {
