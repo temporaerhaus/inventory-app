@@ -454,8 +454,9 @@ fun InventoryApp(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                            .background(Color.Yellow),
+                            .padding(vertical = 4.dp)
+                            .background(MaterialTheme.colorScheme.primary)
+                            .padding(vertical = 8.dp, horizontal = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         val locationText =
@@ -469,7 +470,8 @@ fun InventoryApp(
                         Text(
                             text = locationText,
                             softWrap = true,
-                            modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+                            modifier = Modifier.weight(1f),
+                            color = MaterialTheme.colorScheme.onPrimary
                         )
                         IconButton(
                             onClick = ::forgetLastContainerItem,
@@ -477,6 +479,7 @@ fun InventoryApp(
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Close,
+                                tint = MaterialTheme.colorScheme.onPrimary,
                                 contentDescription = "Remove",
                                 modifier = Modifier
                                     .size(24.dp)
