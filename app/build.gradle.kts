@@ -13,8 +13,8 @@ android {
         applicationId = "de.temporaerhaus.inventory.client"
         minSdk = 23 // Android 6.0 (API 23) - so we can still use the torg devices
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         base.archivesName = "tph-inventory-client-${versionName}"
