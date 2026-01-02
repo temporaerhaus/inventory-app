@@ -52,7 +52,8 @@ class InventoryApi(val baseUrl: String) {
 
     suspend fun writeAsSeen(
         item: InventoryItem,
-        lastContainerItem: InventoryItem? = null
+        lastContainerItem: InventoryItem? = null,
+        locationMode: LocationMode? = null
     ): InventoryItem? {
         try {
             val response = dokuwikiApi.getPageContent(DokuwikiApi.PageRequest("inventar/${item.number}"))
@@ -76,7 +77,12 @@ class InventoryApi(val baseUrl: String) {
                 }
 
                 if (lastContainerItem != null && lastContainerItem.number != item.number) {
-                    updatedYamlBlock["temporary"] = mapOf(
+                    val locationKey = when (locationMode) {
+                        LocationMode.Nominal -> "nominal"
+                        LocationMode.Temporary -> "temporary"
+                        else -> throw IllegalArgumentException("Unknown location mode: $locationMode")
+                    }
+                    updatedYamlBlock[locationKey] = mapOf(
                         "description" to "",
                         "location" to lastContainerItem.number,
                         "timestamp" to nowIso

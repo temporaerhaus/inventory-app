@@ -216,6 +216,11 @@ data class InventoryItem(
     val data: Map<String, Any>?
 )
 
+enum class LocationMode {
+    Nominal,
+    Temporary
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun InventoryApp(
@@ -234,6 +239,7 @@ fun InventoryApp(
     var saved by remember { mutableStateOf(false) }
     var autoSave by rememberSaveable {  mutableStateOf(false) }
     var lastContainerItem by remember { mutableStateOf<InventoryItem?>(null) }
+    var locationMode by remember { mutableStateOf(LocationMode.Temporary) }
     var lastItemWasScanned by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val now = remember { mutableStateOf(LocalDateTime.now()) }
@@ -304,7 +310,7 @@ fun InventoryApp(
             isSaving = true
             coroutineScope.launch(Dispatchers.IO) {
                 try {
-                    val newItem = inventoryApi.writeAsSeen(item!!, lastContainerItem)
+                    val newItem = inventoryApi.writeAsSeen(item!!, lastContainerItem, locationMode)
                     if (newItem != null) {
                         item = newItem
                         saved = true
@@ -494,11 +500,94 @@ fun InventoryApp(
                     ) {
                         val locationText =
                             if (lastContainerItem!!.number == item!!.number) {
-                                "The next scans will be located at ${lastContainerItem!!.name}"
+                                buildAnnotatedString {
+                                    append("The next scans will be ")
+                                    withLink(
+                                        link = LinkAnnotation.Clickable(
+                                            tag = "TAG",
+                                            styles = TextLinkStyles(
+                                                style = SpanStyle(
+                                                    textDecoration = TextDecoration.Underline
+                                                )
+                                            ),
+                                            linkInteractionListener = {
+                                                if (locationMode == LocationMode.Temporary) {
+                                                    locationMode = LocationMode.Nominal
+                                                } else {
+                                                    locationMode = LocationMode.Temporary
+                                                }
+                                            },
+                                        ),
+                                    ) {
+                                        if (locationMode == LocationMode.Nominal) {
+                                            append("permanently")
+                                        } else {
+                                            append("temporarily")
+                                        }
+                                        append(" located")
+                                    }
+                                    append(" at ")
+                                    withLink(
+                                        link = LinkAnnotation.Clickable(
+                                            tag = "TAG",
+                                            styles = TextLinkStyles(
+                                                style = SpanStyle(
+                                                    textDecoration = TextDecoration.Underline
+                                                )
+                                            ),
+                                            linkInteractionListener = {
+                                                openItemFromDescription(lastContainerItem!!.number)
+                                            },
+                                        ),
+                                    ) {
+                                        append(lastContainerItem!!.name)
+                                    }
+                                }
                             } else {
-                                "Set current location to ${lastContainerItem!!.number} (${lastContainerItem!!.name})"
+                                buildAnnotatedString {
+                                    append("Set ")
+                                    withLink(
+                                        link = LinkAnnotation.Clickable(
+                                            tag = "TAG",
+                                            styles = TextLinkStyles(
+                                                style = SpanStyle(
+                                                    textDecoration = TextDecoration.Underline
+                                                )
+                                            ),
+                                            linkInteractionListener = {
+                                                if (locationMode == LocationMode.Temporary) {
+                                                    locationMode = LocationMode.Nominal
+                                                } else {
+                                                    locationMode = LocationMode.Temporary
+                                                }
+                                            },
+                                        ),
+                                    ) {
+                                        if (locationMode == LocationMode.Nominal) {
+                                            append("permanent")
+                                        } else {
+                                            append("temporary")
+                                        }
+                                        append(" location")
+                                    }
+                                    append(" to ")
+                                    withLink(
+                                        link = LinkAnnotation.Clickable(
+                                            tag = "TAG",
+                                            styles = TextLinkStyles(
+                                                style = SpanStyle(
+                                                    textDecoration = TextDecoration.Underline
+                                                )
+                                            ),
+                                            linkInteractionListener = {
+                                                openItemFromDescription(lastContainerItem!!.number)
+                                            },
+                                        ),
+                                    ) {
+                                        append("${lastContainerItem!!.number} (${lastContainerItem!!.name})")
+                                    }
+                                }
                             }
-
 
                         Text(
                             text = locationText,
