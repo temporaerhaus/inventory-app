@@ -80,7 +80,6 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -453,7 +452,7 @@ fun InventoryApp(
                         if (item != null) ItemDataLines(
                             item = item!!,
                             now = now,
-                            onItemNumberClicked = { it -> openItemFromDescription(it) },
+                            onItemNumberClicked = { openItemFromDescription(it) },
                             onRemoveLocationClicked = { key ->
                                 Log.d(TAG, "remove location: $key")
                                 val newItemData = item!!.data!!.toMutableMap()
