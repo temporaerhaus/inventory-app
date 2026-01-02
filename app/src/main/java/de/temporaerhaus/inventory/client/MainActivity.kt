@@ -32,12 +32,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -412,7 +406,7 @@ fun InventoryApp(
                         }
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.Search,
+                            painter = painterResource(R.drawable.search_24),
                             contentDescription = "Search"
                         )
                     }
@@ -517,7 +511,7 @@ fun InventoryApp(
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Filled.Close,
+                                painter = painterResource(R.drawable.close_24),
                                 tint = MaterialTheme.colorScheme.onPrimary,
                                 contentDescription = "Remove",
                                 modifier = Modifier
@@ -541,7 +535,7 @@ fun InventoryApp(
                 ) {
                     IconButton(onClick = ::openInBrowser) {
                         Icon(
-                            painter = painterResource(R.drawable.open_in_browser_24),
+                            painter = painterResource(R.drawable.open_in_new_24),
                             contentDescription = "Open in Browser",
                         )
                     }
@@ -638,7 +632,7 @@ fun ItemDataLines(item: InventoryItem,
                             modifier = Modifier.padding(start = 8.dp).size(32.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Filled.Delete,
+                                painter = painterResource(R.drawable.delete_outline_24),
                                 contentDescription = "Remove Location",
                                 modifier = Modifier
                                     .size(24.dp)
@@ -898,12 +892,12 @@ fun MarkAsSeenButton(
                         strokeWidth = 2.dp
                     )
                     saved -> Icon(
-                        imageVector = Icons.Filled.CheckCircle,
+                        painter = painterResource(R.drawable.check_circle_24),
                         contentDescription = "Checked",
                         tint = Color.White
                     )
                     else -> Icon(
-                        imageVector = Icons.Outlined.Check,
+                        painter = painterResource(R.drawable.check_24),
                         contentDescription = "Check mark",
                         tint = Color.White
                     )
