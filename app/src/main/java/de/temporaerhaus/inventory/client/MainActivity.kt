@@ -35,6 +35,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.Button
@@ -67,7 +68,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
@@ -80,6 +80,7 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -452,7 +453,17 @@ fun InventoryApp(
                         if (item != null) ItemDataLines(
                             item = item!!,
                             now = now,
-                            onItemNumberClicked = { it -> openItemFromDescription(it) }
+                            onItemNumberClicked = { it -> openItemFromDescription(it) },
+                            onRemoveLocationClicked = { key ->
+                                Log.d(TAG, "remove location: $key")
+                                val newItemData = item!!.data!!.toMutableMap()
+                                when (key) {
+                                    "temporary.location" -> newItemData["temporary"] = mapOf<String, Any>()
+                                    "nominal.location" -> newItemData["nominal"] = mapOf<String, Any>()
+                                    else -> Log.e(TAG, "key $key unknown")
+                                }
+                                item = item!!.copy(data = newItemData)
+                            }
                         )
                     }
                 }
@@ -559,10 +570,11 @@ fun InventoryApp(
 @Composable
 fun ItemDataLines(item: InventoryItem,
                   now: MutableState<LocalDateTime>,
-                  onItemNumberClicked: (number: String) -> Unit) {
+                  onItemNumberClicked: (number: String) -> Unit,
+                  onRemoveLocationClicked: (key: String) -> Unit) {
 
     @Composable
-    fun renderNestedData(data: Map<String, Any?>, indent: Int = 0) {
+    fun renderNestedData(data: Map<String, Any?>, indent: Int = 0, onRemoveLocationClicked: (key: String) -> Unit) {
         val INDENT_SIZE = 12
         data.forEach { (key, value) ->
             if (key in listOf("inventory") || value == null || value.toString().isBlank()) {
@@ -584,7 +596,7 @@ fun ItemDataLines(item: InventoryItem,
                     modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
                 )
                 @Suppress("UNCHECKED_CAST")
-                renderNestedData(value as Map<String, Any?>, indent + 1)
+                renderNestedData(value as Map<String, Any?>, indent + 1, { k -> onRemoveLocationClicked("$key.$k") })
                 Text(
                     text = "}",
                     fontFamily = FontFamily.Monospace,
@@ -592,7 +604,8 @@ fun ItemDataLines(item: InventoryItem,
                 )
             } else {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     if (key == "location") {
                         val text = buildAnnotatedString {
@@ -616,8 +629,22 @@ fun ItemDataLines(item: InventoryItem,
                         Text(
                             text = text,
                             fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
+                            modifier = Modifier
+                                .padding(start = (indent * INDENT_SIZE).dp)
                         )
+                        IconButton(
+                            onClick = {
+                                onRemoveLocationClicked(key)
+                            },
+                            modifier = Modifier.padding(start = 8.dp).size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Delete,
+                                contentDescription = "Remove Location",
+                                modifier = Modifier
+                                    .size(24.dp)
+                            )
+                        }
                     } else {
                         Text(
                             text = "$key: $value",
@@ -648,7 +675,7 @@ fun ItemDataLines(item: InventoryItem,
         }
     }
 
-    renderNestedData(item.data ?: emptyMap())
+    renderNestedData(item.data ?: emptyMap(), 0, onRemoveLocationClicked)
 }
 
 fun testForDateTime(value: String): LocalDateTime? {

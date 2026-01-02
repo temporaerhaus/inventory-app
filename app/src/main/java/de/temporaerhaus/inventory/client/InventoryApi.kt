@@ -67,6 +67,14 @@ class InventoryApi(val baseUrl: String) {
 
                 updatedYamlBlock["lastSeenAt"] = nowIso
 
+                if (updatedYamlBlock["temporary"] != null && (item.data!!["temporary"] as Map<*, *>).isEmpty()) {
+                    updatedYamlBlock["temporary"] = mapOf<String, Any>()
+                }
+
+                if (updatedYamlBlock["nominal"] != null && (item.data!!["nominal"] as Map<*, *>).isEmpty()) {
+                    updatedYamlBlock["nominal"] = mapOf<String, Any>()
+                }
+
                 if (lastContainerItem != null && lastContainerItem.number != item.number) {
                     updatedYamlBlock["temporary"] = mapOf(
                         "description" to "",
