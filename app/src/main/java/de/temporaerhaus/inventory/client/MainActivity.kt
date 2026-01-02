@@ -329,7 +329,7 @@ fun InventoryApp(
     }
 
     fun openInBrowser() {
-        val fullUrl = "${inventoryApi.baseUrl}/inventar/${item?.number}"
+        val fullUrl = "${inventoryApi.baseUrl}inventar/${item?.number}"
         Log.d(TAG, "Open in browser: ${fullUrl}")
         val intent = Intent(Intent.ACTION_VIEW, fullUrl.toUri())
         context.startActivity(intent)
