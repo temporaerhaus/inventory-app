@@ -237,7 +237,7 @@ fun InventoryApp(
     var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
     var isSaving by remember { mutableStateOf(false) }
     var saved by remember { mutableStateOf(false) }
-    var autoSave by rememberSaveable {  mutableStateOf(false) }
+    var autoSave by rememberSaveable {  mutableStateOf(true) }
     var lastContainerItem by remember { mutableStateOf<InventoryItem?>(null) }
     var locationMode by remember { mutableStateOf(LocationMode.Temporary) }
     var lastItemWasScanned by remember { mutableStateOf(false) }
