@@ -235,6 +235,7 @@ fun InventoryApp(
     var inventoryNumber by rememberSaveable { mutableStateOf("") }
     var item by remember { mutableStateOf<InventoryItem?>(null) }
     var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    var needsSaving by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
     var saved by remember { mutableStateOf(false) }
     var autoSave by rememberSaveable {  mutableStateOf(true) }
@@ -255,6 +256,7 @@ fun InventoryApp(
         errorMessage = null
         item = null
         isSaving = false
+        needsSaving = false
         saved = false
         coroutineScope.launch(Dispatchers.IO) {
             try {
@@ -314,6 +316,7 @@ fun InventoryApp(
                     if (newItem != null) {
                         item = newItem
                         saved = true
+                        needsSaving = false
                         if (!lastItemWasScanned) {
                             // after saving, focus the text field again
                             focusRequester.requestFocus()
@@ -462,6 +465,7 @@ fun InventoryApp(
                                     else -> Log.e(TAG, "key $key unknown")
                                 }
                                 item = item!!.copy(data = newItemData)
+                                needsSaving = true
                             }
                         )
                     }
@@ -630,6 +634,7 @@ fun InventoryApp(
                     }
                     Spacer(modifier = Modifier.weight(1f))
                     MarkAsSeenButton(
+                        needsSaving = needsSaving,
                         isSaving = isSaving,
                         saved = saved,
                         onMarkAsSeen = ::markAsSeen,
@@ -904,6 +909,7 @@ fun ClockTextRow(text: String, modifier: Modifier = Modifier) {
 
 @Composable
 fun MarkAsSeenButton(
+    needsSaving: Boolean,
     isSaving: Boolean,
     saved: Boolean,
     onMarkAsSeen: () -> Unit,
@@ -995,6 +1001,7 @@ fun MarkAsSeenButton(
                 Text(
                     text = when {
                         isSaving -> "Saving..."
+                        needsSaving -> "Save & mark as seen"
                         saved -> "Marked as seen"
                         else -> "Mark as seen"
                     },
