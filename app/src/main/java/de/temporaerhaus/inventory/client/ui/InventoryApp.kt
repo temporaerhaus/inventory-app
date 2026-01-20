@@ -3,7 +3,6 @@ package de.temporaerhaus.inventory.client.ui
 import android.content.Intent
 import android.util.Log
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -72,7 +72,6 @@ import de.temporaerhaus.inventory.client.util.TAG
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.yield
 import java.io.IOException
 import java.time.LocalDateTime
 
@@ -87,10 +86,16 @@ class InventoryViewModel(private val inventoryApi: InventoryApi) : ViewModel() {
     var lastContainerItem by mutableStateOf<InventoryItem?>(null)
     var locationMode by mutableStateOf(LocationMode.Temporary)
     var lastItemWasScanned by mutableStateOf(false)
-    var now by mutableStateOf(LocalDateTime.now())
+    var now: LocalDateTime by mutableStateOf(LocalDateTime.now())
+        private set
 
-    fun updateNow() {
-        now = LocalDateTime.now()
+    init {
+        viewModelScope.launch {
+            while (true) {
+                now = LocalDateTime.now()
+                delay(1000)
+            }
+        }
     }
 
     fun search() {
@@ -125,11 +130,12 @@ class InventoryViewModel(private val inventoryApi: InventoryApi) : ViewModel() {
     }
 
     fun markAsSeen(onFinished: () -> Unit = {}) {
-        if (!isSaving && !saved && item != null) {
+        val currentItem = item ?: return
+        if (!isSaving && !saved) {
             isSaving = true
             viewModelScope.launch(Dispatchers.IO) {
                 try {
-                    val newItem = inventoryApi.writeAsSeen(item!!, lastContainerItem, locationMode)
+                    val newItem = inventoryApi.writeAsSeen(currentItem, lastContainerItem, locationMode)
                     if (newItem != null) {
                         item = newItem
                         saved = true
@@ -202,17 +208,13 @@ fun InventoryApp(
     val context = LocalContext.current
     val focusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(Unit) {
-        while(true) {
-            viewModel.updateNow()
-            delay(1000)
-            yield()
-        }
+    LaunchedEffect(barcodeBroadcastState?.value) {
+        barcodeBroadcastState?.value?.let { viewModel.onBarcodeScanned(it) }
     }
 
-    LaunchedEffect(barcodeBroadcastState?.value) {
-        barcodeBroadcastState?.value?.let { barcode ->
-            viewModel.onBarcodeScanned(barcode)
+    if (!isHardwareScannerAvailable) {
+        LaunchedEffect(Unit) {
+            focusRequester.requestFocus()
         }
     }
 
@@ -226,8 +228,6 @@ fun InventoryApp(
                 .addOnSuccessListener { result ->
                     viewModel.onBarcodeScanned(result.rawValue ?: "")
                 }
-                .addOnCanceledListener {
-                }
                 .addOnFailureListener { e ->
                     Log.e(TAG, "Barcode scanning failed: ${e.message}")
                 }
@@ -237,301 +237,317 @@ fun InventoryApp(
     }
 
     fun openInBrowser() {
-        val fullUrl = "${inventoryApi.baseUrl}inventar/${viewModel.item?.number}"
-        Log.d(TAG, "Open in browser: ${fullUrl}")
-        val intent = Intent(Intent.ACTION_VIEW, fullUrl.toUri())
-        context.startActivity(intent)
+        viewModel.item?.let { item ->
+            val fullUrl = "${inventoryApi.baseUrl}inventar/${item.number}"
+            Log.d(TAG, "Open in browser: $fullUrl")
+            val intent = Intent(Intent.ACTION_VIEW, fullUrl.toUri())
+            context.startActivity(intent)
+        }
     }
 
     val keyboardVisible = WindowInsets.isImeVisible
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
+    Column(
+        modifier = modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier =
-                        Modifier
-                            .padding(vertical = 8.dp, horizontal = 16.dp)
-                ) {
-                    OutlinedTextField(
-                        modifier = Modifier
-                            .weight(1f)
-                            .focusRequester(focusRequester),
-                        singleLine = true,
-                        value = viewModel.inventoryNumber,
-                        onValueChange = {
-                            viewModel.inventoryNumber = it
-                            viewModel.errorMessage = null
-                        },
-                        label = { Text("Inventory number") },
-                        trailingIcon = {
-                            Icon(
-                                painter = painterResource(R.drawable.barcode_scanner_24),
-                                contentDescription = "Scan barcode",
-                                modifier = Modifier.clickable {
-                                    scanBarcode()
-                                }
-                            )
-                        },
-                        keyboardOptions = KeyboardOptions(
-                            imeAction = ImeAction.Search
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onSearch = {
-                                viewModel.lastItemWasScanned = false
-                                viewModel.search()
-                            }
-                        ),
-                    )
-                    if (!isHardwareScannerAvailable) {
-                        LaunchedEffect(Unit) {
-                            focusRequester.requestFocus()
-                        }
-                    }
-                    Spacer(modifier = Modifier.padding(horizontal = 8.dp))
-                    Button(
-                        modifier = Modifier
-                            .align(Alignment.CenterVertically)
-                            .padding(top = 4.dp),
-                        onClick = {
-                            viewModel.lastItemWasScanned = false
-                            viewModel.search()
-                        }
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.search_24),
-                            contentDescription = "Search"
-                        )
-                    }
-                }
+        Column {
+            InventorySearchBar(
+                inventoryNumber = viewModel.inventoryNumber,
+                onValueChange = {
+                    viewModel.inventoryNumber = it
+                    viewModel.errorMessage = null
+                },
+                onSearch = {
+                    viewModel.lastItemWasScanned = false
+                    viewModel.search()
+                },
+                onScan = ::scanBarcode,
+                textFieldModifier = Modifier.focusRequester(focusRequester)
+            )
 
-                if (viewModel.errorMessage != null) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    ) {
-                        Text(
-                            text = viewModel.errorMessage!!,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(bottom = 8.dp),
-                            softWrap = true
-                        )
-                    }
-                }
-            }
-
-            if (viewModel.item?.data != null) {
+            viewModel.errorMessage?.let { msg ->
                 Text(
-                    text = "${viewModel.item?.name ?: "Unknown Item"}:",
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp),
+                    text = msg,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
                     softWrap = true
                 )
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 16.dp)
-                        .fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .verticalScroll(rememberScrollState())
-                    ) {
-                        ItemDataLines(
-                            item = viewModel.item!!,
-                            now = viewModel.now,
-                            onItemNumberClicked = { viewModel.openItemFromDescription(it) },
-                            onRemoveLocationClicked = { viewModel.removeLocation(it) }
-                        )
-                    }
-                }
-            } else {
-                val emptyStateText = "Inventory Client v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\n" +
-                        "Instance: ${inventoryApi.baseUrl}"
-                Spacer(modifier = Modifier.weight(0.5f))
-                Text(
-                    text = emptyStateText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.Center,
-                    softWrap = true,
-                    modifier = Modifier.fillMaxWidth()
+            }
+        }
+
+        val currentItem = viewModel.item
+        if (currentItem?.data != null) {
+            ItemContent(
+                item = currentItem,
+                now = viewModel.now,
+                onItemNumberClicked = { viewModel.openItemFromDescription(it) },
+                onRemoveLocationClicked = { viewModel.removeLocation(it) },
+                modifier = Modifier.weight(1f)
+            )
+
+            if (viewModel.lastContainerItem != null) {
+                LocationBanner(
+                    lastContainerItem = viewModel.lastContainerItem!!,
+                    currentItem = currentItem,
+                    locationMode = viewModel.locationMode,
+                    onToggleLocationMode = { viewModel.toggleLocationMode() },
+                    onOpenContainer = { viewModel.openItemFromDescription(it) },
+                    onDismiss = { viewModel.forgetLastContainerItem() }
                 )
-                Spacer(modifier = Modifier.weight(1f))
             }
 
-
-            if (viewModel.item?.data != null) {
-                // Add padding at the bottom when keyboard is visible
-                val buttonBottomPadding = if (keyboardVisible)
-                    256.dp // Window.ime didn't work for some reason
-                else
-                    8.dp
-
-                if (viewModel.lastContainerItem != null) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .background(MaterialTheme.colorScheme.primary)
-                            .padding(vertical = 8.dp, horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val locationText =
-                            if (viewModel.lastContainerItem!!.number == viewModel.item!!.number) {
-                                buildAnnotatedString {
-                                    append("The next scans will be ")
-                                    withLink(
-                                        link = LinkAnnotation.Clickable(
-                                            tag = "TAG",
-                                            styles = TextLinkStyles(
-                                                style = SpanStyle(
-                                                    textDecoration = TextDecoration.Underline
-                                                )
-                                            ),
-                                            linkInteractionListener = {
-                                                viewModel.toggleLocationMode()
-                                            },
-                                        ),
-                                    ) {
-                                        if (viewModel.locationMode == LocationMode.Nominal) {
-                                            append("permanently")
-                                        } else {
-                                            append("temporarily")
-                                        }
-                                        append(" located")
-                                    }
-                                    append(" at ")
-                                    withLink(
-                                        link = LinkAnnotation.Clickable(
-                                            tag = "TAG",
-                                            styles = TextLinkStyles(
-                                                style = SpanStyle(
-                                                    textDecoration = TextDecoration.Underline
-                                                )
-                                            ),
-                                            linkInteractionListener = {
-                                                viewModel.openItemFromDescription(viewModel.lastContainerItem!!.number)
-                                            },
-                                        ),
-                                    ) {
-                                        append(viewModel.lastContainerItem!!.name)
-                                    }
-                                }
-                            } else {
-                                buildAnnotatedString {
-                                    append("Set ")
-                                    withLink(
-                                        link = LinkAnnotation.Clickable(
-                                            tag = "TAG",
-                                            styles = TextLinkStyles(
-                                                style = SpanStyle(
-                                                    textDecoration = TextDecoration.Underline
-                                                )
-                                            ),
-                                            linkInteractionListener = {
-                                                viewModel.toggleLocationMode()
-                                            },
-                                        ),
-                                    ) {
-                                        if (viewModel.locationMode == LocationMode.Nominal) {
-                                            append("permanent")
-                                        } else {
-                                            append("temporary")
-                                        }
-                                        append(" location")
-                                    }
-                                    append(" to ")
-                                    withLink(
-                                        link = LinkAnnotation.Clickable(
-                                            tag = "TAG",
-                                            styles = TextLinkStyles(
-                                                style = SpanStyle(
-                                                    textDecoration = TextDecoration.Underline
-                                                )
-                                            ),
-                                            linkInteractionListener = {
-                                                viewModel.openItemFromDescription(viewModel.lastContainerItem!!.number)
-                                            },
-                                        ),
-                                    ) {
-                                        append("${viewModel.lastContainerItem!!.number} (${viewModel.lastContainerItem!!.name})")
-                                    }
-                                }
-                            }
-
-                        Text(
-                            text = locationText,
-                            softWrap = true,
-                            modifier = Modifier.weight(1f),
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                        IconButton(
-                            onClick = { viewModel.forgetLastContainerItem() },
-                            modifier = Modifier.size(48.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.close_24),
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                                contentDescription = "Remove",
-                                modifier = Modifier
-                                    .size(24.dp)
-                            )
+            InventoryActionBar(
+                onOpenInBrowser = ::openInBrowser,
+                needsSaving = viewModel.needsSaving,
+                isSaving = viewModel.isSaving,
+                saved = viewModel.saved,
+                autoSave = viewModel.autoSave,
+                onMarkAsSeen = {
+                    viewModel.markAsSeen(onFinished = {
+                        if (!viewModel.lastItemWasScanned) {
+                            focusRequester.requestFocus()
                         }
-                    }
-                }
+                    })
+                },
+                onToggleAutoSave = { viewModel.toggleAutoSave() },
+                modifier = Modifier.padding(bottom = if (keyboardVisible) 256.dp else 8.dp)
+            )
+        } else {
+            EmptyState(
+                baseUrl = inventoryApi.baseUrl,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(
-                            top = 3.dp,
-                            bottom = buttonBottomPadding,
-                            start = 16.dp,
-                            end = 16.dp
-                        ),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = ::openInBrowser) {
-                        Icon(
-                            painter = painterResource(R.drawable.open_in_new_24),
-                            contentDescription = "Open in Browser",
-                        )
-                    }
-                    Spacer(modifier = Modifier.weight(1f))
-                    MarkAsSeenButton(
-                        needsSaving = viewModel.needsSaving,
-                        isSaving = viewModel.isSaving,
-                        saved = viewModel.saved,
-                        onMarkAsSeen = {
-                            viewModel.markAsSeen(onFinished = {
-                                if (!viewModel.lastItemWasScanned) {
-                                    focusRequester.requestFocus()
-                                }
-                            })
-                        },
-                        autoSave = viewModel.autoSave
+@Composable
+fun InventorySearchBar(
+    inventoryNumber: String,
+    onValueChange: (String) -> Unit,
+    onSearch: () -> Unit,
+    onScan: () -> Unit,
+    modifier: Modifier = Modifier,
+    textFieldModifier: Modifier = Modifier
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.padding(vertical = 8.dp, horizontal = 16.dp)
+    ) {
+        OutlinedTextField(
+            modifier = Modifier
+                .weight(1f)
+                .then(textFieldModifier),
+            singleLine = true,
+            value = inventoryNumber,
+            onValueChange = onValueChange,
+            label = { Text("Inventory number") },
+            trailingIcon = {
+                IconButton(onClick = onScan) {
+                    Icon(
+                        painter = painterResource(R.drawable.barcode_scanner_24),
+                        contentDescription = "Scan barcode"
                     )
-                    Spacer(modifier = Modifier.weight(1f))
-                    IconButton(onClick = { viewModel.toggleAutoSave() }) {
-                        Icon(
-                            painter = painterResource(if (viewModel.autoSave) R.drawable.time_auto_24 else R.drawable.timer_off_24),
-                            contentDescription = "Auto save",
-                        )
-                    }
                 }
+            },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Button(
+            modifier = Modifier.padding(top = 4.dp),
+            onClick = onSearch
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.search_24),
+                contentDescription = "Search"
+            )
+        }
+    }
+}
+
+@Composable
+fun ItemContent(
+    item: InventoryItem,
+    now: LocalDateTime,
+    onItemNumberClicked: (String) -> Unit,
+    onRemoveLocationClicked: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = "${item.name ?: "Unknown Item"}:",
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp),
+            softWrap = true
+        )
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                ItemDataLines(
+                    item = item,
+                    now = now,
+                    onItemNumberClicked = onItemNumberClicked,
+                    onRemoveLocationClicked = onRemoveLocationClicked
+                )
             }
         }
     }
 }
 
+@Composable
+fun EmptyState(
+    baseUrl: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        val emptyStateText = "Inventory Client v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\n" +
+                "Instance: $baseUrl"
+        Text(
+            text = emptyStateText,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            softWrap = true,
+            modifier = Modifier.padding(16.dp)
+        )
+    }
+}
+
+@Composable
+fun LocationBanner(
+    lastContainerItem: InventoryItem,
+    currentItem: InventoryItem,
+    locationMode: LocationMode,
+    onToggleLocationMode: () -> Unit,
+    onOpenContainer: (String) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.primary)
+            .padding(vertical = 8.dp, horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val linkStyle = TextLinkStyles(style = SpanStyle(textDecoration = TextDecoration.Underline))
+        val isSelf = lastContainerItem.number == currentItem.number
+
+        val locationText = buildAnnotatedString {
+            if (isSelf) {
+                append("The next scans will be ")
+                withLink(
+                    LinkAnnotation.Clickable(
+                        tag = "mode",
+                        styles = linkStyle,
+                        linkInteractionListener = { onToggleLocationMode() }
+                    )
+                ) {
+                    append(if (locationMode == LocationMode.Nominal) "permanently" else "temporarily")
+                    append(" located")
+                }
+                append(" at ")
+                withLink(
+                    LinkAnnotation.Clickable(
+                        tag = "container",
+                        styles = linkStyle,
+                        linkInteractionListener = { onOpenContainer(lastContainerItem.number) }
+                    )
+                ) {
+                    append(lastContainerItem.name)
+                }
+            } else {
+                append("Set ")
+                withLink(
+                    LinkAnnotation.Clickable(
+                        tag = "mode",
+                        styles = linkStyle,
+                        linkInteractionListener = { onToggleLocationMode() }
+                    )
+                ) {
+                    append(if (locationMode == LocationMode.Nominal) "permanent" else "temporary")
+                    append(" location")
+                }
+                append(" to ")
+                withLink(
+                    LinkAnnotation.Clickable(
+                        tag = "container",
+                        styles = linkStyle,
+                        linkInteractionListener = { onOpenContainer(lastContainerItem.number) }
+                    )
+                ) {
+                    append("${lastContainerItem.number} (${lastContainerItem.name})")
+                }
+            }
+        }
+
+        Text(
+            text = locationText,
+            softWrap = true,
+            modifier = Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.onPrimary
+        )
+        IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp)) {
+            Icon(
+                painter = painterResource(R.drawable.close_24),
+                contentDescription = "Remove",
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun InventoryActionBar(
+    onOpenInBrowser: () -> Unit,
+    needsSaving: Boolean,
+    isSaving: Boolean,
+    saved: Boolean,
+    autoSave: Boolean,
+    onMarkAsSeen: () -> Unit,
+    onToggleAutoSave: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 3.dp, start = 16.dp, end = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onOpenInBrowser) {
+            Icon(
+                painter = painterResource(R.drawable.open_in_new_24),
+                contentDescription = "Open in Browser",
+            )
+        }
+        Spacer(modifier = Modifier.weight(1f))
+        MarkAsSeenButton(
+            needsSaving = needsSaving,
+            isSaving = isSaving,
+            saved = saved,
+            onMarkAsSeen = onMarkAsSeen,
+            autoSave = autoSave
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        IconButton(onClick = onToggleAutoSave) {
+            Icon(
+                painter = painterResource(if (autoSave) R.drawable.time_auto_24 else R.drawable.timer_off_24),
+                contentDescription = "Auto save",
+            )
+        }
+    }
+}
 
 @Preview(showBackground = true)
 @Composable
