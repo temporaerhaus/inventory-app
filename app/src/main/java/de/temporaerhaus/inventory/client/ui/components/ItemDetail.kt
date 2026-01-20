@@ -11,7 +11,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -37,7 +36,7 @@ import java.time.Period
 
 @Composable
 fun ItemDataLines(item: InventoryItem,
-                  now: MutableState<LocalDateTime>,
+                  now: LocalDateTime,
                   onItemNumberClicked: (number: String) -> Unit,
                   onRemoveLocationClicked: (key: String) -> Unit) {
 
@@ -147,15 +146,15 @@ fun ItemDataLines(item: InventoryItem,
 }
 
 @Composable
-fun DateLine(value: String, now: MutableState<LocalDateTime>, modifier: Modifier = Modifier) {
+fun DateLine(value: String, now: LocalDateTime, modifier: Modifier = Modifier) {
     val dateTime: LocalDateTime? = testForDateTime(value)
     if (dateTime != null) {
-        RelativeDateTimeRow(now.value, dateTime, modifier = modifier)
+        RelativeDateTimeRow(now, dateTime, modifier = modifier)
     }
 
     val date: LocalDate? = testForDate(value)
     if (date != null) {
-        RelativeDateRow(now.value, date, modifier = modifier)
+        RelativeDateRow(now, date, modifier = modifier)
     }
 }
 
