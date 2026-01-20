@@ -30,12 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -53,23 +48,20 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import de.temporaerhaus.inventory.client.BuildConfig
 import de.temporaerhaus.inventory.client.InventoryApi
 import de.temporaerhaus.inventory.client.R
-import de.temporaerhaus.inventory.client.model.InventoryItem
 import de.temporaerhaus.inventory.client.model.LocationMode
 import de.temporaerhaus.inventory.client.ui.components.ItemDataLines
 import de.temporaerhaus.inventory.client.ui.components.MarkAsSeenButton
 import de.temporaerhaus.inventory.client.ui.theme.TPHInventoryTheme
 import de.temporaerhaus.inventory.client.util.TAG
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.yield
-import java.io.IOException
-import java.time.LocalDateTime
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -77,60 +69,24 @@ fun InventoryApp(
     modifier: Modifier = Modifier,
     inventoryApi: InventoryApi,
     barcodeBroadcastState: MutableState<String>? = null,
-    isHardwareScannerAvailable: Boolean = false
+    isHardwareScannerAvailable: Boolean = false,
+    viewModel: InventoryViewModel = viewModel(factory = InventoryViewModel.provideFactory(inventoryApi))
 ) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
 
-    var inventoryNumber by rememberSaveable { mutableStateOf("") }
-    var item by remember { mutableStateOf<InventoryItem?>(null) }
-    var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
-    var needsSaving by remember { mutableStateOf(false) }
-    var isSaving by remember { mutableStateOf(false) }
-    var saved by remember { mutableStateOf(false) }
-    var autoSave by rememberSaveable {  mutableStateOf(true) }
-    var lastContainerItem by remember { mutableStateOf<InventoryItem?>(null) }
-    var locationMode by remember { mutableStateOf(LocationMode.Temporary) }
-    var lastItemWasScanned by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
-    val now = remember { mutableStateOf(LocalDateTime.now()) }
+
     LaunchedEffect(Unit) {
         while(true) {
-            now.value = LocalDateTime.now()
-            kotlinx.coroutines.delay(1000) // Update every second
+            viewModel.updateNow()
+            delay(1000)
             yield()
-        }
-    }
-
-    fun search() {
-        errorMessage = null
-        item = null
-        isSaving = false
-        needsSaving = false
-        saved = false
-        coroutineScope.launch(Dispatchers.IO) {
-            try {
-                item = inventoryApi.getInventoryData(inventoryNumber)
-                if (item?.data?.getOrDefault("container", false) == true) {
-                    lastContainerItem = item
-                }
-            } catch (e: IOException) {
-                Log.e(TAG, "Error getting data: ${e.message}")
-                errorMessage = e.message
-            } catch (e: Exception) {
-                Log.e(TAG, "Error getting data: ${e.message}")
-                errorMessage = "Error getting data: ${e.message}"
-            }
         }
     }
 
     LaunchedEffect(barcodeBroadcastState?.value) {
         barcodeBroadcastState?.value?.let { barcode ->
-            if (barcode.isNotEmpty() && barcode != inventoryNumber) {
-                inventoryNumber = barcode
-                lastItemWasScanned = true
-                search()
-            }
+            viewModel.onBarcodeScanned(barcode)
         }
     }
 
@@ -142,12 +98,9 @@ fun InventoryApp(
             val scanner = GmsBarcodeScanning.getClient(context, options)
             scanner.startScan()
                 .addOnSuccessListener { result ->
-                    inventoryNumber = result.rawValue ?: ""
-                    lastItemWasScanned = true
-                    search()
+                    viewModel.onBarcodeScanned(result.rawValue ?: "")
                 }
                 .addOnCanceledListener {
-                    // User canceled the scan
                 }
                 .addOnFailureListener { e ->
                     Log.e(TAG, "Barcode scanning failed: ${e.message}")
@@ -157,49 +110,11 @@ fun InventoryApp(
         }
     }
 
-    fun markAsSeen() {
-        if (!isSaving && !saved) {
-            isSaving = true
-            coroutineScope.launch(Dispatchers.IO) {
-                try {
-                    val newItem = inventoryApi.writeAsSeen(item!!, lastContainerItem, locationMode)
-                    if (newItem != null) {
-                        item = newItem
-                        saved = true
-                        needsSaving = false
-                        if (!lastItemWasScanned) {
-                            // after saving, focus the text field again
-                            focusRequester.requestFocus()
-                        }
-                    }
-                } catch (e: IOException) {
-                    errorMessage = e.message
-                } finally {
-                    isSaving = false
-                }
-            }
-        }
-    }
-
     fun openInBrowser() {
-        val fullUrl = "${inventoryApi.baseUrl}inventar/${item?.number}"
+        val fullUrl = "${inventoryApi.baseUrl}inventar/${viewModel.item?.number}"
         Log.d(TAG, "Open in browser: ${fullUrl}")
         val intent = Intent(Intent.ACTION_VIEW, fullUrl.toUri())
         context.startActivity(intent)
-    }
-
-    fun toggleAutoSave() {
-        autoSave = !autoSave
-    }
-
-    fun forgetLastContainerItem() {
-        lastContainerItem = null
-    }
-
-    fun openItemFromDescription(number: String) {
-        inventoryNumber = number
-        lastItemWasScanned = false
-        search()
     }
 
     val keyboardVisible = WindowInsets.isImeVisible
@@ -224,10 +139,10 @@ fun InventoryApp(
                             .weight(1f)
                             .focusRequester(focusRequester),
                         singleLine = true,
-                        value = inventoryNumber,
+                        value = viewModel.inventoryNumber,
                         onValueChange = {
-                            inventoryNumber = it
-                            errorMessage = null
+                            viewModel.inventoryNumber = it
+                            viewModel.errorMessage = null
                         },
                         label = { Text("Inventory number") },
                         trailingIcon = {
@@ -244,8 +159,8 @@ fun InventoryApp(
                         ),
                         keyboardActions = KeyboardActions(
                             onSearch = {
-                                lastItemWasScanned = false
-                                search()
+                                viewModel.lastItemWasScanned = false
+                                viewModel.search()
                             }
                         ),
                     )
@@ -260,8 +175,8 @@ fun InventoryApp(
                             .align(Alignment.CenterVertically)
                             .padding(top = 4.dp),
                         onClick = {
-                            lastItemWasScanned = false
-                            search()
+                            viewModel.lastItemWasScanned = false
+                            viewModel.search()
                         }
                     ) {
                         Icon(
@@ -271,12 +186,12 @@ fun InventoryApp(
                     }
                 }
 
-                if (errorMessage != null) {
+                if (viewModel.errorMessage != null) {
                     Row(
                         modifier = Modifier.padding(horizontal = 16.dp)
                     ) {
                         Text(
-                            text = errorMessage!!,
+                            text = viewModel.errorMessage!!,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.padding(bottom = 8.dp),
                             softWrap = true
@@ -285,9 +200,9 @@ fun InventoryApp(
                 }
             }
 
-            if (item?.data != null) {
+            if (viewModel.item?.data != null) {
                 Text(
-                    text = "${item?.name ?: "Unknown Item"}:",
+                    text = "${viewModel.item?.name ?: "Unknown Item"}:",
                     style = MaterialTheme.typography.headlineSmall,
                     modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp),
                     softWrap = true
@@ -302,21 +217,11 @@ fun InventoryApp(
                         modifier = Modifier
                             .verticalScroll(rememberScrollState())
                     ) {
-                        if (item != null) ItemDataLines(
-                            item = item!!,
-                            now = now,
-                            onItemNumberClicked = { openItemFromDescription(it) },
-                            onRemoveLocationClicked = { key ->
-                                Log.d(TAG, "remove location: $key")
-                                val newItemData = item!!.data!!.toMutableMap()
-                                when (key) {
-                                    "temporary.location" -> newItemData["temporary"] = mapOf<String, Any>()
-                                    "nominal.location" -> newItemData["nominal"] = mapOf<String, Any>()
-                                    else -> Log.e(TAG, "key $key unknown")
-                                }
-                                item = item!!.copy(data = newItemData)
-                                needsSaving = true
-                            }
+                        ItemDataLines(
+                            item = viewModel.item!!,
+                            now = viewModel.now,
+                            onItemNumberClicked = { viewModel.openItemFromDescription(it) },
+                            onRemoveLocationClicked = { viewModel.removeLocation(it) }
                         )
                     }
                 }
@@ -336,14 +241,14 @@ fun InventoryApp(
             }
 
 
-            if (item?.data != null) {
+            if (viewModel.item?.data != null) {
                 // Add padding at the bottom when keyboard is visible
                 val buttonBottomPadding = if (keyboardVisible)
                     256.dp // Window.ime didn't work for some reason
                 else
                     8.dp
 
-                if (lastContainerItem != null) {
+                if (viewModel.lastContainerItem != null) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -353,7 +258,7 @@ fun InventoryApp(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         val locationText =
-                            if (lastContainerItem!!.number == item!!.number) {
+                            if (viewModel.lastContainerItem!!.number == viewModel.item!!.number) {
                                 buildAnnotatedString {
                                     append("The next scans will be ")
                                     withLink(
@@ -365,15 +270,15 @@ fun InventoryApp(
                                                 )
                                             ),
                                             linkInteractionListener = {
-                                                if (locationMode == LocationMode.Temporary) {
-                                                    locationMode = LocationMode.Nominal
+                                                if (viewModel.locationMode == LocationMode.Temporary) {
+                                                    viewModel.locationMode = LocationMode.Nominal
                                                 } else {
-                                                    locationMode = LocationMode.Temporary
+                                                    viewModel.locationMode = LocationMode.Temporary
                                                 }
                                             },
                                         ),
                                     ) {
-                                        if (locationMode == LocationMode.Nominal) {
+                                        if (viewModel.locationMode == LocationMode.Nominal) {
                                             append("permanently")
                                         } else {
                                             append("temporarily")
@@ -390,11 +295,11 @@ fun InventoryApp(
                                                 )
                                             ),
                                             linkInteractionListener = {
-                                                openItemFromDescription(lastContainerItem!!.number)
+                                                viewModel.openItemFromDescription(viewModel.lastContainerItem!!.number)
                                             },
                                         ),
                                     ) {
-                                        append(lastContainerItem!!.name)
+                                        append(viewModel.lastContainerItem!!.name)
                                     }
                                 }
                             } else {
@@ -409,15 +314,15 @@ fun InventoryApp(
                                                 )
                                             ),
                                             linkInteractionListener = {
-                                                if (locationMode == LocationMode.Temporary) {
-                                                    locationMode = LocationMode.Nominal
+                                                if (viewModel.locationMode == LocationMode.Temporary) {
+                                                    viewModel.locationMode = LocationMode.Nominal
                                                 } else {
-                                                    locationMode = LocationMode.Temporary
+                                                    viewModel.locationMode = LocationMode.Temporary
                                                 }
                                             },
                                         ),
                                     ) {
-                                        if (locationMode == LocationMode.Nominal) {
+                                        if (viewModel.locationMode == LocationMode.Nominal) {
                                             append("permanent")
                                         } else {
                                             append("temporary")
@@ -434,11 +339,11 @@ fun InventoryApp(
                                                 )
                                             ),
                                             linkInteractionListener = {
-                                                openItemFromDescription(lastContainerItem!!.number)
+                                                viewModel.openItemFromDescription(viewModel.lastContainerItem!!.number)
                                             },
                                         ),
                                     ) {
-                                        append("${lastContainerItem!!.number} (${lastContainerItem!!.name})")
+                                        append("${viewModel.lastContainerItem!!.number} (${viewModel.lastContainerItem!!.name})")
                                     }
                                 }
                             }
@@ -450,7 +355,7 @@ fun InventoryApp(
                             color = MaterialTheme.colorScheme.onPrimary
                         )
                         IconButton(
-                            onClick = ::forgetLastContainerItem,
+                            onClick = { viewModel.forgetLastContainerItem() },
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
@@ -484,16 +389,22 @@ fun InventoryApp(
                     }
                     Spacer(modifier = Modifier.weight(1f))
                     MarkAsSeenButton(
-                        needsSaving = needsSaving,
-                        isSaving = isSaving,
-                        saved = saved,
-                        onMarkAsSeen = ::markAsSeen,
-                        autoSave = autoSave
+                        needsSaving = viewModel.needsSaving,
+                        isSaving = viewModel.isSaving,
+                        saved = viewModel.saved,
+                        onMarkAsSeen = {
+                            viewModel.markAsSeen(onFinished = {
+                                if (!viewModel.lastItemWasScanned) {
+                                    focusRequester.requestFocus()
+                                }
+                            })
+                        },
+                        autoSave = viewModel.autoSave
                     )
                     Spacer(modifier = Modifier.weight(1f))
-                    IconButton(onClick = ::toggleAutoSave) {
+                    IconButton(onClick = { viewModel.toggleAutoSave() }) {
                         Icon(
-                            painter = painterResource(if (autoSave) R.drawable.time_auto_24 else R.drawable.timer_off_24),
+                            painter = painterResource(if (viewModel.autoSave) R.drawable.time_auto_24 else R.drawable.timer_off_24),
                             contentDescription = "Auto save",
                         )
                     }
