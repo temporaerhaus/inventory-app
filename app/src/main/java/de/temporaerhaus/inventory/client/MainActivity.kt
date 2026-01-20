@@ -79,6 +79,8 @@ import androidx.core.net.toUri
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
+import de.temporaerhaus.inventory.client.model.InventoryItem
+import de.temporaerhaus.inventory.client.model.LocationMode
 import de.temporaerhaus.inventory.client.ui.theme.TPHInventoryTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -208,17 +210,6 @@ class MainActivity : ComponentActivity() {
         }
         this.sendBroadcast(i)
     }
-}
-
-data class InventoryItem(
-    val number: String,
-    val name: String?,
-    val data: Map<String, Any>?
-)
-
-enum class LocationMode {
-    Nominal,
-    Temporary
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
