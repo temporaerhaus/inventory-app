@@ -6,13 +6,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,7 +19,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -196,7 +193,6 @@ class InventoryViewModel(private val inventoryApi: InventoryApi) : ViewModel() {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun InventoryApp(
     modifier: Modifier = Modifier,
@@ -245,10 +241,10 @@ fun InventoryApp(
         }
     }
 
-    val keyboardVisible = WindowInsets.isImeVisible
-
     Column(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .imePadding(),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column {
@@ -311,7 +307,7 @@ fun InventoryApp(
                     })
                 },
                 onToggleAutoSave = { viewModel.toggleAutoSave() },
-                modifier = Modifier.padding(bottom = if (keyboardVisible) 256.dp else 8.dp)
+                modifier = Modifier.padding(bottom = 8.dp)
             )
         } else {
             EmptyState(
