@@ -2,6 +2,7 @@ package de.temporaerhaus.inventory.client.ui.components
 
 import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -23,10 +24,12 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.temporaerhaus.inventory.client.R
 import de.temporaerhaus.inventory.client.model.InventoryItem
+import de.temporaerhaus.inventory.client.ui.theme.TPHInventoryTheme
 import de.temporaerhaus.inventory.client.util.testForDate
 import de.temporaerhaus.inventory.client.util.testForDateTime
 import java.time.Duration
@@ -244,5 +247,47 @@ fun ClockTextRow(text: String, modifier: Modifier = Modifier) {
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ItemDataLinesPreview() {
+    TPHInventoryTheme {
+        val now = LocalDateTime.of(2026, 1, 20, 12, 0)
+        val item = InventoryItem(
+            number = "V-XY123",
+            name = "Test Item",
+            data = mapOf(
+                "container" to true,
+                "temporary" to mapOf(
+                    "location" to "V-XY100",
+                ),
+                "lastSeenAt" to "2026-01-14T10:00:00",
+            )
+        )
+        Column(modifier = Modifier.padding(16.dp)) {
+            ItemDataLines(
+                item = item,
+                now = now,
+                onItemNumberClicked = {},
+                onRemoveLocationClicked = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun RelativeDateRowPreview() {
+    TPHInventoryTheme {
+        val now = LocalDateTime.of(2026, 1, 20, 12, 0)
+        val date = LocalDate.of(2026, 1, 14)
+        Column(modifier = Modifier.padding(16.dp)) {
+            RelativeDateRow(
+                now = now,
+                date = date
+            )
+        }
     }
 }

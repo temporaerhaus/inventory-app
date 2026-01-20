@@ -196,7 +196,7 @@ class InventoryViewModel(private val inventoryApi: InventoryApi) : ViewModel() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun InventoryApp(
     modifier: Modifier = Modifier,
@@ -367,6 +367,19 @@ fun InventorySearchBar(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+fun InventorySearchBarPreview() {
+    TPHInventoryTheme {
+        InventorySearchBar(
+            inventoryNumber = "V-XY12345",
+            onValueChange = {},
+            onSearch = {},
+            onScan = {}
+        )
+    }
+}
+
 @Composable
 fun ItemContent(
     item: InventoryItem,
@@ -437,8 +450,7 @@ fun LocationBanner(
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.primary)
             .padding(vertical = 8.dp, horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+        verticalAlignment = Alignment.CenterVertically) {
         val linkStyle = TextLinkStyles(style = SpanStyle(textDecoration = TextDecoration.Underline))
         val isSelf = lastContainerItem.number == currentItem.number
 
@@ -507,6 +519,39 @@ fun LocationBanner(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+fun LocationBannerItemPreview() {
+    val container = InventoryItem(number = "V-XY100", name = "Toolbox", data = mapOf("container" to true))
+    val item = InventoryItem(number = "V-XY101", name = "Hammer", data = emptyMap())
+    TPHInventoryTheme {
+        LocationBanner(
+            lastContainerItem = container,
+            currentItem = item,
+            locationMode = LocationMode.Temporary,
+            onToggleLocationMode = {},
+            onOpenContainer = {},
+            onDismiss = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun LocationBannerContainerPreview() {
+    val container = InventoryItem(number = "V-XY100", name = "Toolbox", data = mapOf("container" to true))
+    TPHInventoryTheme {
+        LocationBanner(
+            lastContainerItem = container,
+            currentItem = container,
+            locationMode = LocationMode.Nominal,
+            onToggleLocationMode = {},
+            onOpenContainer = {},
+            onDismiss = {}
+        )
+    }
+}
+
 @Composable
 fun InventoryActionBar(
     onOpenInBrowser: () -> Unit,
@@ -521,7 +566,7 @@ fun InventoryActionBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = 3.dp, start = 16.dp, end = 16.dp),
+            .padding(vertical = 3.dp, horizontal = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -546,6 +591,22 @@ fun InventoryActionBar(
                 contentDescription = "Auto save",
             )
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun InventoryActionBarPreview() {
+    TPHInventoryTheme {
+        InventoryActionBar(
+            onOpenInBrowser = {},
+            needsSaving = false,
+            isSaving = false,
+            saved = false,
+            autoSave = true,
+            onMarkAsSeen = {},
+            onToggleAutoSave = {}
+        )
     }
 }
 

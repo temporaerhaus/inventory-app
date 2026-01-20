@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material3.Button
@@ -28,9 +29,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.temporaerhaus.inventory.client.R
+import de.temporaerhaus.inventory.client.ui.theme.TPHInventoryTheme
 
 @Composable
 fun MarkAsSeenButton(
@@ -134,6 +137,70 @@ fun MarkAsSeenButton(
                     color = Color.White
                 )
             }
+        }
+    }
+}
+
+@Preview(name = "Default", showBackground = true)
+@Composable
+fun MarkAsSeenButtonDefaultPreview() {
+    TPHInventoryTheme {
+        Box(modifier = Modifier.padding(16.dp)) {
+            MarkAsSeenButton(
+                needsSaving = false,
+                isSaving = false,
+                saved = false,
+                onMarkAsSeen = {},
+                autoSave = false
+            )
+        }
+    }
+}
+
+@Preview(name = "Needs Saving", showBackground = true)
+@Composable
+fun MarkAsSeenButtonNeedsSavingPreview() {
+    TPHInventoryTheme {
+        Box(modifier = Modifier.padding(16.dp)) {
+            MarkAsSeenButton(
+                needsSaving = true,
+                isSaving = false,
+                saved = false,
+                onMarkAsSeen = {},
+                autoSave = false
+            )
+        }
+    }
+}
+
+@Preview(name = "Saving", showBackground = true)
+@Composable
+fun MarkAsSeenButtonSavingPreview() {
+    TPHInventoryTheme {
+        Box(modifier = Modifier.padding(16.dp)) {
+            MarkAsSeenButton(
+                needsSaving = false,
+                isSaving = true,
+                saved = false,
+                onMarkAsSeen = {},
+                autoSave = false
+            )
+        }
+    }
+}
+
+@Preview(name = "Saved", showBackground = true)
+@Composable
+fun MarkAsSeenButtonSavedPreview() {
+    TPHInventoryTheme {
+        Box(modifier = Modifier.padding(16.dp)) {
+            MarkAsSeenButton(
+                needsSaving = false,
+                isSaving = false,
+                saved = true,
+                onMarkAsSeen = {},
+                autoSave = false
+            )
         }
     }
 }
