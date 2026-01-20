@@ -10,9 +10,6 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,14 +24,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,27 +47,20 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -81,18 +68,15 @@ import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import de.temporaerhaus.inventory.client.model.InventoryItem
 import de.temporaerhaus.inventory.client.model.LocationMode
+import de.temporaerhaus.inventory.client.ui.components.ItemDataLines
+import de.temporaerhaus.inventory.client.ui.components.MarkAsSeenButton
 import de.temporaerhaus.inventory.client.ui.theme.TPHInventoryTheme
 import de.temporaerhaus.inventory.client.util.TAG
-import de.temporaerhaus.inventory.client.util.testForDate
-import de.temporaerhaus.inventory.client.util.testForDateTime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import java.io.IOException
-import java.time.Duration
-import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.Period
 
 class MainActivity : ComponentActivity() {
     companion object {
@@ -637,326 +621,6 @@ fun InventoryApp(
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-
-@Composable
-fun ItemDataLines(item: InventoryItem,
-                  now: MutableState<LocalDateTime>,
-                  onItemNumberClicked: (number: String) -> Unit,
-                  onRemoveLocationClicked: (key: String) -> Unit) {
-
-    @Composable
-    fun renderNestedData(data: Map<String, Any?>, indent: Int = 0, onRemoveLocationClicked: (key: String) -> Unit) {
-        val INDENT_SIZE = 12
-        data.forEach { (key, value) ->
-            if (key in listOf("inventory") || value == null || value.toString().isBlank()) {
-                return@forEach
-            }
-
-            if (value is Map<*, *>) {
-                if (value.isEmpty()) {
-                    Text(
-                        text = "$key: {}",
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
-                    )
-                    return@forEach
-                }
-                Text(
-                    text = "$key: { ",
-                    fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
-                )
-                @Suppress("UNCHECKED_CAST")
-                renderNestedData(value as Map<String, Any?>, indent + 1, { k -> onRemoveLocationClicked("$key.$k") })
-                Text(
-                    text = "}",
-                    fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
-                )
-            } else {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    if (key == "location") {
-                        val text = buildAnnotatedString {
-                            append("$key: ")
-                            withLink(
-                                link = LinkAnnotation.Clickable(
-                                    tag = "TAG",
-                                    styles = TextLinkStyles(
-                                        style = SpanStyle(
-                                            textDecoration = TextDecoration.Underline
-                                        )
-                                    ),
-                                    linkInteractionListener = {
-                                        onItemNumberClicked(value.toString())
-                                    },
-                                ),
-                            ) {
-                                append(value.toString())
-                            }
-                        }
-                        Text(
-                            text = text,
-                            fontFamily = FontFamily.Monospace,
-                            modifier = Modifier
-                                .padding(start = (indent * INDENT_SIZE).dp)
-                        )
-                        IconButton(
-                            onClick = {
-                                onRemoveLocationClicked(key)
-                            },
-                            modifier = Modifier.padding(start = 8.dp).size(32.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.delete_outline_24),
-                                contentDescription = "Remove Location",
-                                modifier = Modifier
-                                    .size(24.dp)
-                            )
-                        }
-                    } else {
-                        Text(
-                            text = "$key: $value",
-                            fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
-                        )
-                    }
-                    if (key == "container") {
-                        Icon(
-                            painter = painterResource(R.drawable.package_variant_24),
-                            contentDescription = "Package",
-                            modifier = Modifier
-                                .size(20.dp)
-                                .padding(start = 4.dp)
-                                .alpha(0.6f)
-                        )
-                    }
-                }
-                if (key in listOf("date", "lastSeenAt", "timestamp")) {
-                    DateLine(
-                        value.toString(),
-                        now,
-                        modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
-                    )
-                }
-                // FIXME: show title of location item
-            }
-        }
-    }
-
-    renderNestedData(item.data ?: emptyMap(), 0, onRemoveLocationClicked)
-}
-
-@Composable
-fun DateLine(value: String, now: MutableState<LocalDateTime>, modifier: Modifier = Modifier) {
-    val dateTime: LocalDateTime? = testForDateTime(value)
-    if (dateTime != null) {
-        RelativeDateTimeRow(now.value, dateTime, modifier = modifier)
-    }
-
-    val date: LocalDate? = testForDate(value)
-    if (date != null) {
-        RelativeDateRow(now.value, date, modifier = modifier)
-    }
-}
-
-@Composable
-fun RelativeDateTimeRow(
-    now: LocalDateTime,
-    date: LocalDateTime,
-    modifier: Modifier = Modifier,
-    context: Context = LocalContext.current
-) {
-    val duration = Duration.between(date, now)
-
-    var timeText = when {
-        duration.toDays() > 365 -> {
-            val years = duration.toDays() / 365
-            context.resources.getQuantityString(R.plurals.years, years.toInt(), years)
-        }
-        duration.toDays() > 30 -> {
-            val months = duration.toDays() / 30
-            context.resources.getQuantityString(R.plurals.months, months.toInt(), months)
-        }
-        duration.toDays() > 0 -> {
-            val days = duration.toDays()
-            context.resources.getQuantityString(R.plurals.days, days.toInt(), days)
-        }
-        duration.toHours() > 0 -> {
-            val hours = duration.toHours()
-            context.resources.getQuantityString(R.plurals.hours, hours.toInt(), hours)
-        }
-        duration.toMinutes() > 0 -> {
-            val minutes = duration.toMinutes()
-            context.resources.getQuantityString(R.plurals.minutes, minutes.toInt(), minutes)
-        }
-        else -> {
-            val seconds = duration.seconds
-            context.resources.getQuantityString(R.plurals.seconds, seconds.toInt(), seconds)
-        }
-
-    }
-    timeText = if (duration.isNegative) "in $timeText" else "$timeText ago"
-    ClockTextRow(timeText, modifier)
-}
-
-
-@Composable
-fun RelativeDateRow(
-    now: LocalDateTime,
-    date: LocalDate,
-    modifier: Modifier = Modifier,
-    context: Context = LocalContext.current
-) {
-    val duration = Period.between(date, now.toLocalDate()).normalized()
-
-    var timeText = when {
-        duration.years > 0 -> {
-            context.resources.getQuantityString(R.plurals.years, duration.years, duration.years)
-        }
-        duration.months > 0 -> {
-            context.resources.getQuantityString(R.plurals.months, duration.months, duration.months)
-        }
-        else -> {
-            context.resources.getQuantityString(R.plurals.days, duration.days, duration.days)
-        }
-    }
-
-    timeText = if (duration.isNegative) "in $timeText" else "$timeText ago"
-    ClockTextRow(timeText, modifier)
-}
-
-@Composable
-fun ClockTextRow(text: String, modifier: Modifier = Modifier) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = modifier
-    ) {
-        Icon(
-            painter = painterResource(R.drawable.clock_24),
-            contentDescription = "Clock",
-            modifier = Modifier
-                .size(12.dp)
-                .alpha(0.6f)
-        )
-        Text(
-            text = text,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-        )
-    }
-}
-
-@Composable
-fun MarkAsSeenButton(
-    needsSaving: Boolean,
-    isSaving: Boolean,
-    saved: Boolean,
-    onMarkAsSeen: () -> Unit,
-    autoSave: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    val animationProgress = remember { Animatable(0f) }
-    var launched by remember { mutableStateOf(false) }
-    val enabled = !isSaving && !saved
-    val buttonColor: Color = Color.Black
-    val progressColor: Color = Color.DarkGray
-
-    LaunchedEffect(autoSave) {
-        if (autoSave && !launched) {
-            launched = true
-            animationProgress.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(
-                    durationMillis = 5_000,
-                    easing = LinearEasing
-                )
-            )
-            onMarkAsSeen()
-            animationProgress.snapTo(0f)
-            launched = false
-        } else if (!autoSave && launched) {
-            animationProgress.stop()
-            animationProgress.snapTo(0f)
-            launched = false
-        }
-    }
-
-    val brush = if (enabled) Brush.linearGradient(
-        colorStops = arrayOf(
-            0.0f to progressColor,
-            animationProgress.value to progressColor,
-            animationProgress.value to buttonColor,
-            1.0f to buttonColor
-        ),
-        start = Offset.Zero,
-        end = Offset(Float.POSITIVE_INFINITY, 0f)
-    ) else Brush.linearGradient(
-            colorStops = arrayOf(
-                0.0f to Color.Gray,
-                1.0f to Color.Gray
-            ),
-            start = Offset.Zero,
-            end = Offset(Float.POSITIVE_INFINITY, 0f)
-        )
-
-    Box(
-        modifier = modifier
-            .clip(ButtonDefaults.shape)
-            .background(brush = brush)
-    ) {
-        Button(
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Transparent,
-                contentColor = Color.White,
-                disabledContainerColor = Color.Transparent,
-                disabledContentColor = Color.DarkGray.copy(alpha = 0.5f)
-            ),
-            enabled = enabled && !launched,
-            onClick = { onMarkAsSeen() },
-            modifier = Modifier.wrapContentWidth()
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                when {
-                    isSaving -> CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                    saved -> Icon(
-                        painter = painterResource(R.drawable.check_circle_24),
-                        contentDescription = "Checked",
-                        tint = Color.White
-                    )
-                    else -> Icon(
-                        painter = painterResource(R.drawable.check_24),
-                        contentDescription = "Check mark",
-                        tint = Color.White
-                    )
-                }
-                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                Text(
-                    text = when {
-                        isSaving -> "Saving..."
-                        needsSaving -> "Save & mark as seen"
-                        saved -> "Marked as seen"
-                        else -> "Mark as seen"
-                    },
-                    fontSize = 16.sp,
-                    color = Color.White
-                )
             }
         }
     }
