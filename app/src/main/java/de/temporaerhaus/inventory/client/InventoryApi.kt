@@ -3,6 +3,7 @@ package de.temporaerhaus.inventory.client
 import android.util.Log
 import de.temporaerhaus.inventory.client.model.InventoryItem
 import de.temporaerhaus.inventory.client.model.LocationMode
+import de.temporaerhaus.inventory.client.util.TAG
 import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.LoaderOptions
 import org.yaml.snakeyaml.Yaml

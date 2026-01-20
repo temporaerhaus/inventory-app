@@ -82,19 +82,17 @@ import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import de.temporaerhaus.inventory.client.model.InventoryItem
 import de.temporaerhaus.inventory.client.model.LocationMode
 import de.temporaerhaus.inventory.client.ui.theme.TPHInventoryTheme
+import de.temporaerhaus.inventory.client.util.TAG
+import de.temporaerhaus.inventory.client.util.testForDate
+import de.temporaerhaus.inventory.client.util.testForDateTime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import java.io.IOException
-import java.time.DateTimeException
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.Period
-import java.time.format.DateTimeFormatter
-import java.time.format.DateTimeParseException
-
-const val TAG = "TPHInventoryClient"
 
 class MainActivity : ComponentActivity() {
     companion object {
@@ -754,46 +752,6 @@ fun ItemDataLines(item: InventoryItem,
     }
 
     renderNestedData(item.data ?: emptyMap(), 0, onRemoveLocationClicked)
-}
-
-fun testForDateTime(value: String): LocalDateTime? {
-    try {
-        val formats = listOf<DateTimeFormatter>(
-            DateTimeFormatter.ofPattern("EEE MMM dd HH:mm:ss zzz yyyy"),
-            DateTimeFormatter.RFC_1123_DATE_TIME,
-            DateTimeFormatter.ISO_LOCAL_DATE,
-            DateTimeFormatter.ISO_INSTANT,
-            DateTimeFormatter.ISO_DATE_TIME,
-            DateTimeFormatter.ISO_LOCAL_DATE_TIME,
-            DateTimeFormatter.ISO_OFFSET_DATE_TIME,
-        )
-        for (format in formats) {
-            try {
-                return format.parse(value).query(LocalDateTime::from)
-            } catch (_: DateTimeParseException) {
-                continue
-            } catch (_: DateTimeException) {
-                continue
-            }
-        }
-    } catch (e: Exception) {
-        Log.e(TAG, "DateTime parsing error: ${e.message}")
-        return null
-    }
-    return null
-}
-
-fun testForDate(value: String): LocalDate? {
-    try {
-        return DateTimeFormatter.ISO_LOCAL_DATE.parse(value).query(LocalDate::from)
-    } catch (_: DateTimeParseException) {
-        return null
-    } catch (_: DateTimeException) {
-        return null
-    } catch (e: Exception) {
-        Log.e(TAG, "Date parsing error: ${e.message}")
-        return null
-    }
 }
 
 @Composable
