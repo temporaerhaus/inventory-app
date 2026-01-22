@@ -9,6 +9,8 @@ A quick and dirty inventory app for the [temporärhaus](https://temporaerhaus.de
 - displays the current inventory details of an item
 - allows to mark the scanned item as seen
 - assigns the scanned item to the last scanned container item
+- allows removal of temporary / permanent location
+- detects external wifi, allows configuration of auth token
  
 ## Requirements
 - Android >= 6.0 (API 23)
