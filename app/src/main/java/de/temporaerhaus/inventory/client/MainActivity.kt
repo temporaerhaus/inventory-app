@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import de.temporaerhaus.inventory.client.ui.InventoryApp
 import de.temporaerhaus.inventory.client.ui.theme.TPHInventoryTheme
+import de.temporaerhaus.inventory.client.util.SsidManager
 import de.temporaerhaus.inventory.client.util.TAG
 
 class MainActivity : ComponentActivity() {
@@ -50,9 +51,15 @@ class MainActivity : ComponentActivity() {
             false
         }
 
-        val prefs = getSharedPreferences("inventory_prefs", Context.MODE_PRIVATE)
+        val prefs = getSharedPreferences("inventory_prefs", MODE_PRIVATE)
+        val ssidManager = SsidManager.getInstance(application)
+        
         val inventoryApi = InventoryApi(baseUrl) {
-            prefs.getString("auth_token", null)
+            if (ssidManager.isInternalNetwork.value) {
+                null
+            } else {
+                prefs.getString("auth_token", null)
+            }
         }
 
         setContent {

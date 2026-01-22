@@ -13,17 +13,28 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 
 class SsidManager private constructor(private val application: Application) {
 
     private val connectivityManager = application.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     private val wifiManager = application.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private val _currentSsid = MutableStateFlow<String?>(null)
     val currentSsid: StateFlow<String?> = _currentSsid.asStateFlow()
+
+    val isInternalNetwork: StateFlow<Boolean> = _currentSsid
+        .map { ssid -> ssid != null && INTERNAL_SSIDS.contains(ssid) }
+        .stateIn(scope, SharingStarted.Eagerly, false)
 
     private val networkCallback = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         object : ConnectivityManager.NetworkCallback(FLAG_INCLUDE_LOCATION_INFO) {

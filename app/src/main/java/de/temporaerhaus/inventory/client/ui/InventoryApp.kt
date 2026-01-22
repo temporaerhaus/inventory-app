@@ -77,11 +77,11 @@ import de.temporaerhaus.inventory.client.model.LocationMode
 import de.temporaerhaus.inventory.client.ui.components.ItemDataLines
 import de.temporaerhaus.inventory.client.ui.components.MarkAsSeenButton
 import de.temporaerhaus.inventory.client.ui.theme.TPHInventoryTheme
-import de.temporaerhaus.inventory.client.util.INTERNAL_SSIDS
 import de.temporaerhaus.inventory.client.util.SsidManager
 import de.temporaerhaus.inventory.client.util.TAG
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -106,6 +106,8 @@ class InventoryViewModel(
     var locationMode by mutableStateOf(LocationMode.Temporary)
     var lastItemWasScanned by mutableStateOf(false)
     val currentSsid = ssidManager.currentSsid
+    val isInternalNetwork: StateFlow<Boolean> = ssidManager.isInternalNetwork
+
     var authToken by mutableStateOf(prefs.getString("auth_token", "") ?: "")
     var draftToken by mutableStateOf("")
     var showTokenDialog by mutableStateOf(false)
@@ -121,9 +123,8 @@ class InventoryViewModel(
         }
     }
 
-    fun isInternalNetwork(): Boolean {
-        val ssid = currentSsid.value
-        return ssid != null && INTERNAL_SSIDS.contains(ssid)
+    fun updateSsid() {
+        ssidManager.updateSsid()
     }
 
     fun saveAuthToken(token: String) {
@@ -260,13 +261,13 @@ fun InventoryApp(
     val context = LocalContext.current
     val focusRequester = remember { FocusRequester() }
     val currentSsid by viewModel.currentSsid.collectAsState()
-    val ssidManager = remember { SsidManager.getInstance(context.applicationContext as Application) }
+    val isInternalNetwork by viewModel.isInternalNetwork.collectAsState()
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            ssidManager.updateSsid()
+            viewModel.updateSsid()
         }
     }
 
@@ -397,7 +398,7 @@ fun InventoryApp(
             EmptyState(
                 baseUrl = inventoryApi.baseUrl,
                 ssid = currentSsid,
-                isInternal = viewModel.isInternalNetwork(),
+                isInternal = isInternalNetwork,
                 onEditToken = {
                     if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                         permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
@@ -552,7 +553,7 @@ fun EmptyState(
         val emptyStateText = "Inventory Client v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\n" +
                 "Instance: $baseUrl\n" +
                 "WiFi: ${ssid ?: "<Disconnected>"}"
-        
+
         Text(
             text = emptyStateText,
             style = MaterialTheme.typography.bodyMedium,
