@@ -62,6 +62,7 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.scalars)
     implementation(libs.retrofit.converter.gson)
+    implementation(libs.okhttp.logging)
     implementation(libs.snakeyaml)
     implementation(libs.mlkit.barcode.scanning)
     implementation(libs.play.services.code.scanner)

@@ -4,6 +4,8 @@ import android.util.Log
 import de.temporaerhaus.inventory.client.model.InventoryItem
 import de.temporaerhaus.inventory.client.model.LocationMode
 import de.temporaerhaus.inventory.client.util.TAG
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.LoaderOptions
 import org.yaml.snakeyaml.Yaml
@@ -17,10 +19,34 @@ import java.io.IOException
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-class InventoryApi(val baseUrl: String) {
+class InventoryApi(
+    val baseUrl: String,
+    private val tokenProvider: () -> String? = { null }
+) {
     private val dokuwikiApi: DokuwikiApi by lazy {
+        val logging = HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
+        }
+
+        val client = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val original = chain.request()
+                val token = tokenProvider()
+                if (token.isNullOrEmpty()) {
+                    chain.proceed(original)
+                } else {
+                    val request = original.newBuilder()
+                        .header("Authorization", "Bearer $token")
+                        .build()
+                    chain.proceed(request)
+                }
+            }
+            .addInterceptor(logging)
+            .build()
+
         val retrofit = Retrofit.Builder()
             .baseUrl("${baseUrl}/")
+            .client(client)
             .addConverterFactory(ScalarsConverterFactory.create())
             .addConverterFactory(GsonConverterFactory.create())
             .build()

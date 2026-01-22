@@ -49,12 +49,17 @@ class MainActivity : ComponentActivity() {
             false
         }
 
+        val prefs = getSharedPreferences("inventory_prefs", Context.MODE_PRIVATE)
+        val inventoryApi = InventoryApi(baseUrl) {
+            prefs.getString("auth_token", null)
+        }
+
         setContent {
             TPHInventoryTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     InventoryApp(
                         modifier = Modifier.padding(innerPadding),
-                        inventoryApi = InventoryApi(baseUrl),
+                        inventoryApi = inventoryApi,
                         barcodeBroadcastState = _barcodeState,
                         isHardwareScannerAvailable = isDataWedgeInstalled
                     )

@@ -1,7 +1,14 @@
 package de.temporaerhaus.inventory.client.ui
 
+import android.Manifest
+import android.app.Application
+import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -18,15 +26,18 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,8 +58,9 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -65,14 +77,24 @@ import de.temporaerhaus.inventory.client.model.LocationMode
 import de.temporaerhaus.inventory.client.ui.components.ItemDataLines
 import de.temporaerhaus.inventory.client.ui.components.MarkAsSeenButton
 import de.temporaerhaus.inventory.client.ui.theme.TPHInventoryTheme
+import de.temporaerhaus.inventory.client.util.INTERNAL_SSIDS
+import de.temporaerhaus.inventory.client.util.SsidManager
 import de.temporaerhaus.inventory.client.util.TAG
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.time.LocalDateTime
+import androidx.core.content.edit
 
-class InventoryViewModel(private val inventoryApi: InventoryApi) : ViewModel() {
+class InventoryViewModel(
+    private val inventoryApi: InventoryApi,
+    private val ssidManager: SsidManager,
+    application: Application
+) : AndroidViewModel(application) {
+    private val prefs: SharedPreferences = application.getSharedPreferences("inventory_prefs", Context.MODE_PRIVATE)
+
     var inventoryNumber by mutableStateOf("")
     var item by mutableStateOf<InventoryItem?>(null)
     var errorMessage by mutableStateOf<String?>(null)
@@ -83,6 +105,10 @@ class InventoryViewModel(private val inventoryApi: InventoryApi) : ViewModel() {
     var lastContainerItem by mutableStateOf<InventoryItem?>(null)
     var locationMode by mutableStateOf(LocationMode.Temporary)
     var lastItemWasScanned by mutableStateOf(false)
+    val currentSsid = ssidManager.currentSsid
+    var authToken by mutableStateOf(prefs.getString("auth_token", "") ?: "")
+    var draftToken by mutableStateOf("")
+    var showTokenDialog by mutableStateOf(false)
     var now: LocalDateTime by mutableStateOf(LocalDateTime.now())
         private set
 
@@ -93,6 +119,17 @@ class InventoryViewModel(private val inventoryApi: InventoryApi) : ViewModel() {
                 delay(1000)
             }
         }
+    }
+
+    fun isInternalNetwork(): Boolean {
+        val ssid = currentSsid.value
+        return ssid != null && INTERNAL_SSIDS.contains(ssid)
+    }
+
+    fun saveAuthToken(token: String) {
+        authToken = token
+        val prefs = getApplication<Application>().getSharedPreferences("inventory_prefs", Context.MODE_PRIVATE)
+        prefs.edit { putString("auth_token", token) }
     }
 
     fun search() {
@@ -119,7 +156,11 @@ class InventoryViewModel(private val inventoryApi: InventoryApi) : ViewModel() {
     }
 
     fun onBarcodeScanned(barcode: String) {
-        if (barcode.isNotEmpty() && barcode != inventoryNumber) {
+        if (barcode.isEmpty()) return
+
+        if (showTokenDialog) {
+            draftToken = barcode
+        } else if (barcode != inventoryNumber) {
             inventoryNumber = barcode
             lastItemWasScanned = true
             search()
@@ -185,9 +226,10 @@ class InventoryViewModel(private val inventoryApi: InventoryApi) : ViewModel() {
     }
 
     companion object {
-        fun provideFactory(inventoryApi: InventoryApi): ViewModelProvider.Factory = viewModelFactory {
+        fun provideFactory(inventoryApi: InventoryApi, application: Application): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                InventoryViewModel(inventoryApi)
+                val ssidManager = SsidManager.getInstance(application)
+                InventoryViewModel(inventoryApi, ssidManager, application)
             }
         }
     }
@@ -199,10 +241,29 @@ fun InventoryApp(
     inventoryApi: InventoryApi,
     barcodeBroadcastState: MutableState<String>? = null,
     isHardwareScannerAvailable: Boolean = false,
-    viewModel: InventoryViewModel = viewModel(factory = InventoryViewModel.provideFactory(inventoryApi))
+    viewModel: InventoryViewModel = viewModel(factory = InventoryViewModel.provideFactory(
+        inventoryApi, 
+        LocalContext.current.applicationContext as Application
+    ))
 ) {
     val context = LocalContext.current
     val focusRequester = remember { FocusRequester() }
+    val currentSsid by viewModel.currentSsid.collectAsState()
+    val ssidManager = remember { SsidManager.getInstance(context.applicationContext as Application) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            ssidManager.updateSsid()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
 
     LaunchedEffect(barcodeBroadcastState?.value) {
         barcodeBroadcastState?.value?.let { viewModel.onBarcodeScanned(it) }
@@ -212,6 +273,18 @@ fun InventoryApp(
         LaunchedEffect(Unit) {
             focusRequester.requestFocus()
         }
+    }
+
+    if (viewModel.showTokenDialog) {
+        TokenDialog(
+            token = viewModel.draftToken,
+            onTokenChange = { viewModel.draftToken = it },
+            onDismiss = { viewModel.showTokenDialog = false },
+            onSave = {
+                viewModel.saveAuthToken(viewModel.draftToken)
+                viewModel.showTokenDialog = false
+            }
+        )
     }
 
     fun scanBarcode() {
@@ -312,10 +385,54 @@ fun InventoryApp(
         } else {
             EmptyState(
                 baseUrl = inventoryApi.baseUrl,
+                ssid = currentSsid,
+                isInternal = viewModel.isInternalNetwork(),
+                onEditToken = {
+                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                        permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                    }
+                    viewModel.draftToken = viewModel.authToken
+                    viewModel.showTokenDialog = true
+                },
                 modifier = Modifier.weight(1f)
             )
         }
     }
+}
+
+@Composable
+fun TokenDialog(
+    token: String,
+    onTokenChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onSave: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Authentication Token") },
+        text = {
+            Column {
+                Text("Enter the bearer token for DokuWiki API access.")
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = token,
+                    onValueChange = onTokenChange,
+                    label = { Text("Bearer Token") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = onSave) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable
@@ -411,6 +528,9 @@ fun ItemContent(
 @Composable
 fun EmptyState(
     baseUrl: String,
+    ssid: String?,
+    isInternal: Boolean,
+    onEditToken: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -419,7 +539,9 @@ fun EmptyState(
         verticalArrangement = Arrangement.Center
     ) {
         val emptyStateText = "Inventory Client v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\n" +
-                "Instance: $baseUrl"
+                "Instance: $baseUrl\n" +
+                "WiFi: ${ssid ?: "<Disconnected>"}"
+        
         Text(
             text = emptyStateText,
             style = MaterialTheme.typography.bodyMedium,
@@ -428,6 +550,12 @@ fun EmptyState(
             softWrap = true,
             modifier = Modifier.padding(16.dp)
         )
+
+        if (!isInternal) {
+            Button(onClick = onEditToken) {
+                Text("Edit Authentication Token")
+            }
+        }
     }
 }
 
