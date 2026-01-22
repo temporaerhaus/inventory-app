@@ -140,7 +140,9 @@ class InventoryViewModel(
         saved = false
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val fetchedItem = inventoryApi.getInventoryData(inventoryNumber)
+                val fetchedItem = withContext(Dispatchers.IO) {
+                    inventoryApi.getInventoryData(inventoryNumber)
+                }
                 item = fetchedItem
                 if (fetchedItem.data?.getOrDefault("container", false) == true) {
                     lastContainerItem = fetchedItem
@@ -171,9 +173,11 @@ class InventoryViewModel(
         val currentItem = item ?: return
         if (!isSaving && !saved) {
             isSaving = true
-            viewModelScope.launch(Dispatchers.IO) {
+            viewModelScope.launch {
                 try {
-                    val newItem = inventoryApi.writeAsSeen(currentItem, lastContainerItem, locationMode)
+                    val newItem = withContext(Dispatchers.IO) {
+                        inventoryApi.writeAsSeen(currentItem, lastContainerItem, locationMode)
+                    }
                     if (newItem != null) {
                         item = newItem
                         saved = true
