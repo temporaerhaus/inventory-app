@@ -138,7 +138,14 @@ class InventoryViewModel(
         isSaving = false
         needsSaving = false
         saved = false
-        viewModelScope.launch(Dispatchers.IO) {
+
+        if (inventoryNumber.isBlank()) {
+            inventoryNumber = ""
+            lastContainerItem = null
+            return
+        }
+
+        viewModelScope.launch {
             try {
                 val fetchedItem = withContext(Dispatchers.IO) {
                     inventoryApi.getInventoryData(inventoryNumber)
