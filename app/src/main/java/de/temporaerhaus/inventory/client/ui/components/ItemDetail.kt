@@ -39,7 +39,7 @@ import java.time.Period
 
 @Composable
 fun ItemDataLines(item: InventoryItem,
-                  now: LocalDateTime,
+                  now: () -> LocalDateTime,
                   onItemNumberClicked: (number: String) -> Unit,
                   onRemoveLocationClicked: (key: String) -> Unit) {
 
@@ -122,7 +122,7 @@ fun ItemDataLines(item: InventoryItem,
                             modifier = Modifier.padding(start = (indent * INDENT_SIZE).dp)
                         )
                     }
-                    if (key == "container") {
+                    if (key == "container" && value != false) {
                         Icon(
                             painter = painterResource(R.drawable.package_variant_24),
                             contentDescription = "Package",
@@ -149,7 +149,7 @@ fun ItemDataLines(item: InventoryItem,
 }
 
 @Composable
-fun DateLine(value: String, now: LocalDateTime, modifier: Modifier = Modifier) {
+fun DateLine(value: String, now: () -> LocalDateTime, modifier: Modifier = Modifier) {
     val dateTime: LocalDateTime? = testForDateTime(value)
     if (dateTime != null) {
         RelativeDateTimeRow(now, dateTime, modifier = modifier)
@@ -163,12 +163,12 @@ fun DateLine(value: String, now: LocalDateTime, modifier: Modifier = Modifier) {
 
 @Composable
 fun RelativeDateTimeRow(
-    now: LocalDateTime,
+    now: () -> LocalDateTime,
     date: LocalDateTime,
     modifier: Modifier = Modifier,
     context: Context = LocalContext.current
 ) {
-    val duration = Duration.between(date, now)
+    val duration = Duration.between(date, now())
 
     var timeText = when {
         duration.toDays() > 365 -> {
@@ -204,12 +204,12 @@ fun RelativeDateTimeRow(
 
 @Composable
 fun RelativeDateRow(
-    now: LocalDateTime,
+    now: () -> LocalDateTime,
     date: LocalDate,
     modifier: Modifier = Modifier,
     context: Context = LocalContext.current
 ) {
-    val duration = Period.between(date, now.toLocalDate()).normalized()
+    val duration = Period.between(date, now().toLocalDate()).normalized()
 
     var timeText = when {
         duration.years > 0 -> {
@@ -269,7 +269,7 @@ fun ItemDataLinesPreview() {
         Column(modifier = Modifier.padding(16.dp)) {
             ItemDataLines(
                 item = item,
-                now = now,
+                now = { now },
                 onItemNumberClicked = {},
                 onRemoveLocationClicked = {}
             )
@@ -285,7 +285,7 @@ fun RelativeDateRowPreview() {
         val date = LocalDate.of(2026, 1, 14)
         Column(modifier = Modifier.padding(16.dp)) {
             RelativeDateRow(
-                now = now,
+                now = { now },
                 date = date
             )
         }

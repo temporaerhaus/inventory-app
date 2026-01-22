@@ -353,7 +353,7 @@ fun InventoryApp(
         if (currentItem?.data != null) {
             ItemContent(
                 item = currentItem,
-                now = viewModel.now,
+                now = { viewModel.now },
                 onItemNumberClicked = { viewModel.openItemFromDescription(it) },
                 onRemoveLocationClicked = { viewModel.removeLocation(it) },
                 modifier = Modifier.weight(1f)
@@ -500,7 +500,7 @@ fun InventorySearchBarPreview() {
 @Composable
 fun ItemContent(
     item: InventoryItem,
-    now: LocalDateTime,
+    now: () -> LocalDateTime,
     onItemNumberClicked: (String) -> Unit,
     onRemoveLocationClicked: (String) -> Unit,
     modifier: Modifier = Modifier
