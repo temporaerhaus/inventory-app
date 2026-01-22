@@ -10,6 +10,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -58,7 +59,9 @@ class MainActivity : ComponentActivity() {
             TPHInventoryTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     InventoryApp(
-                        modifier = Modifier.padding(innerPadding),
+                        modifier = Modifier
+                            .padding(innerPadding)
+                            .consumeWindowInsets(innerPadding),
                         inventoryApi = inventoryApi,
                         barcodeBroadcastState = _barcodeState,
                         isHardwareScannerAvailable = isDataWedgeInstalled
