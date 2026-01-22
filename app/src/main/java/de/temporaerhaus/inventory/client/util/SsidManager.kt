@@ -29,11 +29,23 @@ class SsidManager private constructor(private val application: Application) {
     private val wifiManager = application.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
+    private val internalSsids: List<String> by lazy {
+        try {
+            val metaData = application.packageManager.getApplicationInfo(application.packageName, PackageManager.GET_META_DATA).metaData
+            val ssids = metaData.getString("de.temporaerhaus.inventory.INTERNAL_SSIDS")
+            Log.d(TAG, "Loaded internal SSIDs: $ssids")
+            ssids?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load INTERNAL_SSIDS from meta-data", e)
+            emptyList()
+        }
+    }
+
     private val _currentSsid = MutableStateFlow<String?>(null)
     val currentSsid: StateFlow<String?> = _currentSsid.asStateFlow()
 
     val isInternalNetwork: StateFlow<Boolean> = _currentSsid
-        .map { ssid -> ssid != null && INTERNAL_SSIDS.contains(ssid) }
+        .map { ssid -> ssid != null && internalSsids.contains(ssid) }
         .stateIn(scope, SharingStarted.Eagerly, false)
 
     private val networkCallback = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

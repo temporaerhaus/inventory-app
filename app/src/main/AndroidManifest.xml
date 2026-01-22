@@ -43,5 +43,9 @@
             android:name="de.temporaerhaus.inventory.WIKI_BASE_URL"
             android:value="${WIKI_BASE_URL}" />
 
+        <meta-data
+            android:name="de.temporaerhaus.inventory.INTERNAL_SSIDS"
+            android:value="${INTERNAL_SSIDS}" />
+
     </application>
 </manifest>

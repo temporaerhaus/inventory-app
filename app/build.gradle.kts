@@ -20,6 +20,7 @@ android {
         base.archivesName = "tph-inventory-client-${versionName}"
 
         manifestPlaceholders["WIKI_BASE_URL"] = "https://wiki.temporaerhaus.de/"
+        manifestPlaceholders["INTERNAL_SSIDS"] = "haushaushaus,haushaushaus-legacy"
     }
 
 
