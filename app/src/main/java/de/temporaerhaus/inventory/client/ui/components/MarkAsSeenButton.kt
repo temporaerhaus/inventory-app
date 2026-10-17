@@ -19,9 +19,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,29 +43,29 @@ fun MarkAsSeenButton(
     autoSave: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val currentOnMarkAsSeen by rememberUpdatedState(onMarkAsSeen)
     val animationProgress = remember { Animatable(0f) }
-    var launched by remember { mutableStateOf(false) }
     val enabled = !isSaving && !saved
     val buttonColor: Color = Color.Black
     val progressColor: Color = Color.DarkGray
 
-    LaunchedEffect(autoSave) {
-        if (autoSave && !launched) {
-            launched = true
-            animationProgress.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(
-                    durationMillis = 5_000,
-                    easing = LinearEasing
+    LaunchedEffect(autoSave, enabled) {
+        if (autoSave && enabled) {
+            try {
+                animationProgress.snapTo(0f)
+                animationProgress.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(
+                        durationMillis = 3_500,
+                        easing = LinearEasing
+                    )
                 )
-            )
-            onMarkAsSeen()
+                currentOnMarkAsSeen()
+            } finally {
+                animationProgress.snapTo(0f)
+            }
+        } else {
             animationProgress.snapTo(0f)
-            launched = false
-        } else if (!autoSave && launched) {
-            animationProgress.stop()
-            animationProgress.snapTo(0f)
-            launched = false
         }
     }
 
@@ -100,7 +99,7 @@ fun MarkAsSeenButton(
                 disabledContainerColor = Color.Transparent,
                 disabledContentColor = Color.DarkGray.copy(alpha = 0.5f)
             ),
-            enabled = enabled && !launched,
+            enabled = enabled,
             onClick = { onMarkAsSeen() },
             modifier = Modifier.wrapContentWidth()
         ) {
