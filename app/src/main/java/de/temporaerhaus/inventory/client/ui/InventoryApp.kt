@@ -91,6 +91,11 @@ import java.io.IOException
 import java.time.LocalDateTime
 import androidx.core.content.edit
 
+data class PendingContainerChoice(
+    val scannedContainer: InventoryItem,
+    val previousContainer: InventoryItem
+)
+
 class InventoryViewModel(
     private val inventoryApi: InventoryApi,
     private val ssidManager: SsidManager,
@@ -106,6 +111,7 @@ class InventoryViewModel(
     var saved by mutableStateOf(false)
     var autoSave by mutableStateOf(true)
     var lastContainerItem by mutableStateOf<InventoryItem?>(null)
+    var pendingContainerChoice by mutableStateOf<PendingContainerChoice?>(null)
     var locationMode by mutableStateOf(LocationMode.Temporary)
     var lastItemWasScanned by mutableStateOf(false)
     val currentSsid = ssidManager.currentSsid
@@ -139,6 +145,7 @@ class InventoryViewModel(
     fun search() {
         errorMessage = null
         item = null
+        pendingContainerChoice = null
         isSaving = false
         needsSaving = false
         saved = false
@@ -155,8 +162,17 @@ class InventoryViewModel(
                     inventoryApi.getInventoryData(inventoryNumber)
                 }
                 item = fetchedItem
-                if (fetchedItem.data?.getOrDefault("container", false) == true) {
-                    lastContainerItem = fetchedItem
+                val isContainer = fetchedItem.data?.getOrDefault("container", false) == true
+                if (isContainer) {
+                    val previous = lastContainerItem
+                    if (previous != null && previous.number != fetchedItem.number) {
+                        pendingContainerChoice = PendingContainerChoice(
+                            scannedContainer = fetchedItem,
+                            previousContainer = previous
+                        )
+                    } else {
+                        lastContainerItem = fetchedItem
+                    }
                 }
             } catch (e: IOException) {
                 Log.e(TAG, "Error getting data: ${e.message}")
@@ -166,6 +182,17 @@ class InventoryViewModel(
                 errorMessage = "Error getting data: ${e.message}"
             }
         }
+    }
+
+    fun putScannedContainerInPreviousContainer() {
+        pendingContainerChoice = null
+    }
+
+    fun useScannedContainerAsNewContainer() {
+        pendingContainerChoice?.scannedContainer?.let {
+            lastContainerItem = it
+        }
+        pendingContainerChoice = null
     }
 
     fun onBarcodeScanned(barcode: String) {
@@ -210,6 +237,7 @@ class InventoryViewModel(
 
     fun forgetLastContainerItem() {
         lastContainerItem = null
+        pendingContainerChoice = null
     }
 
     fun openItemFromDescription(number: String) {
@@ -302,6 +330,15 @@ fun InventoryApp(
         )
     }
 
+    viewModel.pendingContainerChoice?.let { choice ->
+        ContainerChoiceDialog(
+            choice = choice,
+            onPutInPrevious = { viewModel.putScannedContainerInPreviousContainer() },
+            onUseAsNewContainer = { viewModel.useScannedContainerAsNewContainer() },
+            onDismiss = { viewModel.useScannedContainerAsNewContainer() }
+        )
+    }
+
     fun scanBarcode() {
         try {
             val options = GmsBarcodeScannerOptions.Builder()
@@ -386,7 +423,7 @@ fun InventoryApp(
                 needsSaving = viewModel.needsSaving,
                 isSaving = viewModel.isSaving,
                 saved = viewModel.saved,
-                autoSave = viewModel.autoSave,
+                autoSave = viewModel.autoSave && viewModel.pendingContainerChoice == null,
                 onMarkAsSeen = {
                     viewModel.markAsSeen(onFinished = {
                         if (!viewModel.lastItemWasScanned) {
@@ -448,6 +485,64 @@ fun TokenDialog(
             }
         }
     )
+}
+
+@Composable
+fun ContainerChoiceDialog(
+    choice: PendingContainerChoice,
+    onPutInPrevious: () -> Unit,
+    onUseAsNewContainer: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val scannedName = choice.scannedContainer.name ?: choice.scannedContainer.number
+    val previousName = choice.previousContainer.name ?: choice.previousContainer.number
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Container Scanned") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "$scannedName (${choice.scannedContainer.number}) is a container. " +
+                            "$previousName (${choice.previousContainer.number}) is currently active as the previous container."
+                )
+                Text(
+                    text = "What would you like to do?",
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Button(
+                    onClick = onPutInPrevious,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Put inside $previousName")
+                }
+                OutlinedButton(
+                    onClick = onUseAsNewContainer,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Use $scannedName for future scans")
+                }
+            }
+        },
+        confirmButton = {}
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ContainerChoiceDialogPreview() {
+    val previous = InventoryItem(number = "V-XY100", name = "Toolbox", data = mapOf("container" to true))
+    val scanned = InventoryItem(number = "V-XY200", name = "Small Case", data = mapOf("container" to true))
+    TPHInventoryTheme {
+        ContainerChoiceDialog(
+            choice = PendingContainerChoice(scannedContainer = scanned, previousContainer = previous),
+            onPutInPrevious = {},
+            onUseAsNewContainer = {},
+            onDismiss = {}
+        )
+    }
 }
 
 @Composable
