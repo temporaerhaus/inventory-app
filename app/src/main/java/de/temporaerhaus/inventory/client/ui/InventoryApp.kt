@@ -552,8 +552,14 @@ fun InventorySearchBar(
     onSearch: () -> Unit,
     onScan: () -> Unit,
     modifier: Modifier = Modifier,
-    textFieldModifier: Modifier = Modifier
+    textFieldModifier: Modifier = Modifier,
+    hasCamera: Boolean? = null
 ) {
+    val context = LocalContext.current
+    val showScanButton = hasCamera ?: remember(context) {
+        context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
+    }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.padding(vertical = 8.dp, horizontal = 16.dp)
@@ -566,14 +572,16 @@ fun InventorySearchBar(
             value = inventoryNumber,
             onValueChange = onValueChange,
             label = { Text("Inventory number") },
-            trailingIcon = {
-                IconButton(onClick = onScan) {
-                    Icon(
-                        painter = painterResource(R.drawable.barcode_scanner_24),
-                        contentDescription = "Scan barcode"
-                    )
+            trailingIcon = if (showScanButton) {
+                {
+                    IconButton(onClick = onScan) {
+                        Icon(
+                            painter = painterResource(R.drawable.barcode_scanner_24),
+                            contentDescription = "Scan barcode"
+                        )
+                    }
                 }
-            },
+            } else null,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { onSearch() }),
         )
@@ -598,7 +606,8 @@ fun InventorySearchBarPreview() {
             inventoryNumber = "V-XY12345",
             onValueChange = {},
             onSearch = {},
-            onScan = {}
+            onScan = {},
+            hasCamera = true
         )
     }
 }
