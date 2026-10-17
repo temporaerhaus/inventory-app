@@ -9,7 +9,9 @@ import android.content.pm.PackageManager
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +33,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -537,6 +540,7 @@ fun ItemContent(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun EmptyState(
     baseUrl: String,
@@ -560,7 +564,9 @@ fun EmptyState(
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
             softWrap = true,
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier
+                .combinedClickable(onClick = {}, onLongClick = onEditToken)
+                .padding(16.dp)
         )
 
         if (!isInternal) {
